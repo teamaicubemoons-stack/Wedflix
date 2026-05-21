@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.env.*
+
+# Local duplicate/raw media kept outside the deployed public assets.
+/Video/
+Netflix Intro 1080p (Highest Quality)_1080p.mp4
+Netflix.png
