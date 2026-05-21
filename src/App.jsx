@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
    ============================================================ */
 const GlobalStyles = () => (
   <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Cinzel:wght@400..900&family=Cormorant+Garamond:ital,wght@0,300..700;1,300..700&display=swap');
+
     @font-face {
       font-family: 'Netflix Sans';
       font-weight: 300;
@@ -39,15 +41,6 @@ const GlobalStyles = () => (
       font-weight: 900;
       src: url('https://assets.nflxext.com/ffe/siteui/fonts/netflix-sans/v3/NetflixSans_W_Blk.woff2') format('woff2'),
            url('https://assets.nflxext.com/ffe/siteui/fonts/netflix-sans/v3/NetflixSans_W_Blk.woff') format('woff');
-    }
-
-    @font-face {
-      font-family: 'Hatolie';
-      src: url('https://www.thewedflix.com/fonts/hatolie/Hatolie.woff2') format('woff2'),
-           url('https://www.thewedflix.com/fonts/hatolie/Hatolie.woff') format('woff');
-      font-weight: 400;
-      font-style: normal;
-      font-display: swap;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -92,8 +85,9 @@ const GlobalStyles = () => (
       right: 0;
       padding: 0 10px;
       text-align: center;
-      font-family: 'Hatolie', serif;
-      font-size: 22px;
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+      font-size: 19px;
       color: #fff;
       text-transform: uppercase;
       text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95);
@@ -1114,16 +1108,65 @@ const INITIAL_TENANTS = {
   }
 };
 
+const TENANTS_STORAGE_KEY = 'wedflix_tenants';
+const ACTIVE_SLUG_STORAGE_KEY = 'wedflix_active_slug';
+const TENANT_DATA_VERSION_KEY = 'wedflix_tenants_data_version';
+const TENANT_DATA_VERSION = 'v1';
+
+const normalizeSlug = (value) => (
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+);
+
+const cloneTenant = (tenant) => JSON.parse(JSON.stringify(tenant));
+const cloneTenants = (tenants) => Object.fromEntries(
+  Object.entries(tenants).map(([slug, tenant]) => [slug, cloneTenant(tenant)])
+);
+
+const getRouteState = () => {
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  const parts = path.split('/').filter(Boolean);
+
+  if (parts[0] === 'w' && parts[1]) return { mode: 'client', slug: normalizeSlug(parts[1]) };
+  if (parts[0] === 'admin' && parts[1]) return { mode: 'admin-client', slug: normalizeSlug(parts[1]) };
+  if (parts[0] === 'admin') return { mode: 'admin', slug: null };
+  return { mode: 'hub', slug: null };
+};
+
+const getClientUrl = (slug) => `${window.location.origin}/w/${slug}`;
+const getAdminUrl = (slug) => `${window.location.origin}/admin/${slug}`;
+
+const loadStoredTenants = () => {
+  const storedVersion = localStorage.getItem(TENANT_DATA_VERSION_KEY);
+  const storedTenants = localStorage.getItem(TENANTS_STORAGE_KEY);
+
+  if (storedVersion === TENANT_DATA_VERSION && storedTenants) {
+    try {
+      return JSON.parse(storedTenants);
+    } catch {
+      localStorage.removeItem(TENANTS_STORAGE_KEY);
+    }
+  }
+
+  const seeded = cloneTenants(INITIAL_TENANTS);
+  localStorage.setItem(TENANTS_STORAGE_KEY, JSON.stringify(seeded));
+  localStorage.setItem(TENANT_DATA_VERSION_KEY, TENANT_DATA_VERSION);
+  return seeded;
+};
+
 /* ============================================================
    SCREEN 2.1: WEDFLIX CLIENT SHOWCASE HUB (PORTAL SELECTION)
    ============================================================ */
 const ClientShowcaseScreen = ({ tenantsList, onSelectClient, onOpenAdminLogin }) => {
   return (
     <div style={{
-      width: '100vw', minHeight: '100vh', background: '#141414',
+      width: '100vw', height: '100vh', background: '#141414',
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       padding: '40px 4% 80px', fontFamily: '"Netflix Sans", sans-serif',
-      position: 'relative', overflowY: 'auto'
+      position: 'relative', overflowY: 'auto', boxSizing: 'border-box'
     }}>
       {/* Upper Brand Nav */}
       <div style={{
@@ -1149,9 +1192,9 @@ const ClientShowcaseScreen = ({ tenantsList, onSelectClient, onOpenAdminLogin })
 
       <div style={{ textAlign: 'center', marginBottom: 48, maxWidth: 650 }}>
         <h1 style={{
-          fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 800,
-          color: '#fff', marginBottom: 12, fontFamily: 'Hatolie, serif',
-          letterSpacing: '1px'
+          fontSize: 'clamp(2rem, 4vw, 3.2rem)', fontWeight: 800,
+          color: '#fff', marginBottom: 12, fontFamily: '"Playfair Display", serif',
+          letterSpacing: '0.5px'
         }}>
           WEDFLIX ORIGINAL STREAM SHOWCASES
         </h1>
@@ -1162,7 +1205,7 @@ const ClientShowcaseScreen = ({ tenantsList, onSelectClient, onOpenAdminLogin })
 
       {/* Grid of client workspaces */}
       <div style={{
-        display: 'flex', gap: 32, flexWrap: 'wrap',
+        display: 'flex', gap: 24, flexWrap: 'wrap',
         justifyContent: 'center', width: '100%', maxWidth: 1200
       }}>
         {tenantsList.map((client) => {
@@ -1175,7 +1218,7 @@ const ClientShowcaseScreen = ({ tenantsList, onSelectClient, onOpenAdminLogin })
                 if (!isSuspended) onSelectClient(client.slug);
               }}
               style={{
-                width: 320, height: 420, borderRadius: 12,
+                width: 260, height: 350, borderRadius: 10,
                 overflow: 'hidden', background: '#1c1c1c',
                 border: isSuspended ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(255,255,255,0.08)',
                 boxShadow: '0 8px 30px rgba(0,0,0,0.5)', cursor: isSuspended ? 'not-allowed' : 'pointer',
@@ -1184,7 +1227,7 @@ const ClientShowcaseScreen = ({ tenantsList, onSelectClient, onOpenAdminLogin })
             >
               {/* Background Poster */}
               <div style={{
-                height: 200, width: '100%',
+                height: 150, width: '100%',
                 backgroundImage: `url(${client.eventSettings.coverImage || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&q=80'})`,
                 backgroundSize: 'cover', backgroundPosition: 'center',
                 position: 'relative', filter: isSuspended ? 'grayscale(100%) opacity(40%)' : 'none'
@@ -1196,16 +1239,16 @@ const ClientShowcaseScreen = ({ tenantsList, onSelectClient, onOpenAdminLogin })
                 {/* Netflix N Badge */}
                 <div style={{
                   position: 'absolute', top: 12, left: 16,
-                  color: '#e50914', fontSize: 28, fontWeight: 900,
+                  color: '#e50914', fontSize: 24, fontWeight: 900,
                   textShadow: '0 2px 8px rgba(0,0,0,0.8)'
                 }}>N</div>
-                
+
                 {/* Status Badges */}
                 {isSuspended && (
                   <div style={{
                     position: 'absolute', top: 16, right: 16,
-                    background: '#e50914', color: '#fff', fontSize: 10,
-                    fontWeight: 800, padding: '4px 8px', borderRadius: 4,
+                    background: '#e50914', color: '#fff', fontSize: 9,
+                    fontWeight: 800, padding: '3px 6px', borderRadius: 4,
                     textTransform: 'uppercase', letterSpacing: '0.5px'
                   }}>
                     Suspended
@@ -1215,28 +1258,29 @@ const ClientShowcaseScreen = ({ tenantsList, onSelectClient, onOpenAdminLogin })
 
               {/* Text Area */}
               <div style={{
-                padding: '16px 20px 24px', display: 'flex',
+                padding: '12px 16px 16px', display: 'flex',
                 flexDirection: 'column', flexGrow: 1, justifyContent: 'space-between'
               }}>
                 <div>
                   <h3 style={{
-                    fontSize: 22, fontWeight: 800, color: isSuspended ? '#555' : '#fff',
-                    fontFamily: 'Hatolie, serif', letterSpacing: '0.5px', marginBottom: 6,
-                    textTransform: 'uppercase'
+                    fontSize: 16, fontWeight: 800, color: isSuspended ? '#555' : '#fff',
+                    fontFamily: '"Playfair Display", serif', letterSpacing: '0.5px', marginBottom: 4,
+                    textTransform: 'uppercase',
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
                   }}>
                     {client.eventSettings.coupleName}
                   </h3>
                   <div style={{
-                    display: 'flex', gap: 10, fontSize: 12,
-                    color: isSuspended ? '#444' : '#e50914', fontWeight: 700, marginBottom: 12
+                    display: 'flex', gap: 8, fontSize: 10,
+                    color: isSuspended ? '#444' : '#e50914', fontWeight: 700, marginBottom: 8
                   }}>
                     <span>{client.eventSettings.weddingDate}</span>
                     <span style={{ color: '#555' }}>|</span>
                     <span>{client.eventSettings.weddingVenue.split(',')[1] || client.eventSettings.weddingVenue}</span>
                   </div>
                   <p style={{
-                    fontSize: 12, color: isSuspended ? '#444' : '#999',
-                    lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 3,
+                    fontSize: 11, color: isSuspended ? '#444' : '#999',
+                    lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2,
                     WebkitBoxOrient: 'vertical', overflow: 'hidden'
                   }}>
                     {client.eventSettings.customGreeting}
@@ -1246,10 +1290,10 @@ const ClientShowcaseScreen = ({ tenantsList, onSelectClient, onOpenAdminLogin })
                 {!isSuspended && (
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: 6,
-                    color: '#e50914', fontSize: 13, fontWeight: 700, marginTop: 12
+                    color: '#e50914', fontSize: 12, fontWeight: 700, marginTop: 8
                   }}>
                     <span>Enter Private Space</span>
-                    <span style={{ fontSize: 16 }}>→</span>
+                    <span style={{ fontSize: 14 }}>→</span>
                   </div>
                 )}
               </div>
@@ -1257,7 +1301,7 @@ const ClientShowcaseScreen = ({ tenantsList, onSelectClient, onOpenAdminLogin })
           );
         })}
       </div>
-      
+
       <p style={{ color: '#444', fontSize: 11, marginTop: 100 }}>
         © 2026 Wedflix Premium Event Stream Portals. Powered by VOD Edge CDN.
       </p>
@@ -1354,7 +1398,7 @@ const ClientPinLockScreen = ({ eventSettings, onSubmitPin, onBack }) => {
 
         <h2 style={{
           fontSize: 24, fontWeight: 800, color: '#fff',
-          fontFamily: 'Hatolie, serif', letterSpacing: '0.5px', marginBottom: 8,
+          fontFamily: '"Playfair Display", serif', letterSpacing: '0.5px', marginBottom: 8,
           textTransform: 'uppercase'
         }}>
           {eventSettings.coupleName}
@@ -1407,7 +1451,7 @@ const ClientPinLockScreen = ({ eventSettings, onSubmitPin, onBack }) => {
         gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px 24px',
         maxWidth: 280, margin: '20px auto 0'
       }}>
-        {[1,2,3,4,5,6,7,8,9].map(num => (
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
           <button
             key={num}
             onClick={() => handleKeyPress(num.toString())}
@@ -1495,19 +1539,19 @@ const SpaceWarningScreen = ({ eventSettings, type = 'SUSPENDED', onOpenLogin, on
         </div>
 
         <h1 style={{
-          fontSize: 28, fontWeight: 900, color: '#fff',
-          fontFamily: 'Hatolie, serif', letterSpacing: '1px', marginBottom: 12,
+          fontSize: 28, fontWeight: 800, color: '#fff',
+          fontFamily: '"Playfair Display", serif', letterSpacing: '0.5px', marginBottom: 12,
           textTransform: 'uppercase'
         }}>
           {type === 'SUSPENDED' ? 'STREAMING SPACE SUSPENDED' : 'STREAMING SPACE EXPIRED'}
         </h1>
-        
+
         <h3 style={{ fontSize: 16, color: '#e50914', fontWeight: 700, marginBottom: 20, textTransform: 'uppercase' }}>
           {eventSettings?.coupleName || 'PRIVATE EVENT'}
         </h3>
 
         <p style={{ fontSize: 14, color: '#ccc', marginBottom: 28, lineHeight: 1.6, maxWidth: 450 }}>
-          {type === 'SUSPENDED' 
+          {type === 'SUSPENDED'
             ? 'This showcase stream has been temporarily suspended by the streaming administrator. Please contact your photographer to reactivate the cinematic event portal.'
             : `This private showcase space expired on ${eventSettings?.expiryDate || 'N/A'}. All media streaming limits have been paused. Please contact your photographer for a renewal upgrade.`}
         </p>
@@ -1540,7 +1584,7 @@ const SpaceWarningScreen = ({ eventSettings, type = 'SUSPENDED', onOpenLogin, on
           >
             ← Back to Showcases
           </button>
-          
+
           <button
             onClick={onOpenLogin}
             style={{
@@ -1574,7 +1618,7 @@ const IntroScreen = ({ onComplete }) => {
   useEffect(() => {
     const vid = videoRef.current;
     if (!vid) return;
-    vid.play().catch(() => { vid.muted = true; vid.play().catch(() => {}); });
+    vid.play().catch(() => { vid.muted = true; vid.play().catch(() => { }); });
   }, []);
 
   return (
@@ -1623,7 +1667,7 @@ const ProfileScreen = ({ coupleName, onSelect }) => {
       >
         Who's Watching?
       </motion.h1>
-      
+
       <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
         {PROFILES.map((p, i) => (
           <motion.div
@@ -1654,7 +1698,7 @@ const ProfileScreen = ({ coupleName, onSelect }) => {
           </motion.div>
         ))}
       </div>
-      
+
       <div style={{ height: 20 }} />
     </motion.div>
   );
@@ -1663,10 +1707,21 @@ const ProfileScreen = ({ coupleName, onSelect }) => {
 /* ============================================================
    VISUAL EDITOR HELPER COMPONENTS
    ============================================================ */
-const PinLoginScreen = ({ onSuccess, onCancel, tenants = {}, activeSlug }) => {
+const PinLoginScreen = ({ onSuccess, onCancel, tenants = {}, activeSlug, onProvisionTenant }) => {
+  const [loginView, setLoginView] = useState('pin'); // 'pin' or 'create'
+
+  // PIN states
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
   const [shake, setShake] = useState(false);
+
+  // Client Onboarding states
+  const [coupleName, setCoupleName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [accessPin, setAccessPin] = useState('');
+  const [venue, setVenue] = useState('');
+  const [date, setDate] = useState('');
+  const [coverUrl, setCoverUrl] = useState('');
 
   const handleKeyPress = (num) => {
     if (pin.length < 4) {
@@ -1701,6 +1756,7 @@ const PinLoginScreen = ({ onSuccess, onCancel, tenants = {}, activeSlug }) => {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (loginView !== 'pin') return;
       if (e.key >= '0' && e.key <= '9') {
         handleKeyPress(e.key);
       } else if (e.key === 'Backspace') {
@@ -1711,109 +1767,333 @@ const PinLoginScreen = ({ onSuccess, onCancel, tenants = {}, activeSlug }) => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pin]);
+  }, [pin, loginView]);
+
+  const handleCreateSubmit = (e) => {
+    e.preventDefault();
+    const normalized = normalizeSlug(slug || coupleName);
+    if (!coupleName || !normalized || !accessPin) {
+      alert("Please fill in all required fields (Couple Names, Slug, and PIN).");
+      return;
+    }
+
+    if (tenants[normalized]) {
+      alert("A workspace with this URL slug already exists. Please choose a unique slug.");
+      return;
+    }
+
+    if (accessPin.length !== 4) {
+      alert("Access PIN must be exactly 4 digits.");
+      return;
+    }
+
+    // Seed data with strict isolation (prefixed IDs)
+    const seededVideos = DEFAULT_VIDEOS.map(v => ({ ...v, id: `${normalized}_${v.id}` }));
+    const seededFilms = DEFAULT_FILMS.map(f => ({ ...f, id: `${normalized}_${f.id}` }));
+    const seededCollages = DEFAULT_COLLAGE_LAYOUTS.map(c => ({ ...c, id: `${normalized}_${c.id}` }));
+    const seededSeries = {
+      ...DEFAULT_SERIES,
+      id: `${normalized}_${DEFAULT_SERIES.id}`,
+      seasons: DEFAULT_SERIES.seasons.map(s => ({
+        ...s,
+        id: `${normalized}_${s.id}`,
+        episodes: s.episodes.map(ep => ({
+          ...ep,
+          id: `${normalized}_${ep.id}`
+        }))
+      }))
+    };
+
+    const newTenant = {
+      slug: normalized,
+      eventSettings: {
+        coupleName: coupleName.toUpperCase(),
+        weddingDate: date || 'Upcoming',
+        weddingVenue: venue || 'To Be Announced',
+        customGreeting: `Relive the magical moments, films, and ceremonies of ${coupleName}.`,
+        heroVideoUrl: '/Video/video_1.mp4',
+        accessPin,
+        status: 'ACTIVE',
+        expiryDate: '2026-12-31',
+        storageLimitGb: 200,
+        storageUsedGb: 0,
+        coverImage: coverUrl || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80',
+      },
+      weddingVideos: seededVideos,
+      weddingFilms: seededFilms,
+      collageLayouts: seededCollages,
+      weddingSeries: seededSeries
+    };
+
+    onProvisionTenant(normalized, newTenant);
+    alert(`Successfully provisioned workspace for '${coupleName}'. Logging in...`);
+    onSuccess('photographer-new-workspace', normalized);
+  };
 
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)',
       zIndex: 5000, display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center', fontFamily: '"Netflix Sans", sans-serif'
+      alignItems: 'center', justifyContent: 'center', fontFamily: '"Netflix Sans", sans-serif',
+      overflowY: 'auto', padding: '20px 0'
     }}>
       <div style={{
-        width: '100%', maxWidth: 420, padding: 32, borderRadius: 12,
+        width: '100%', maxWidth: 440, padding: 32, borderRadius: 12,
         background: '#141414', border: '1px solid rgba(255,255,255,0.08)',
         textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.6)',
-        transform: shake ? 'translateX(10px)' : 'none',
-        transition: shake ? 'transform 0.05s alternate' : 'transform 0.2s',
+        transform: shake && loginView === 'pin' ? 'translateX(10px)' : 'none',
+        transition: 'transform 0.2s',
       }}>
-        <span style={{ color: '#e50914', display: 'inline-flex', marginBottom: 12 }}>
-          <AppIcon type="lock" size={48} strokeWidth={1.6} />
-        </span>
-        <h2 style={{ fontSize: 24, fontWeight: 800, color: '#fff', marginBottom: 6 }}>Photographer Sign In</h2>
-        <p style={{ fontSize: 13, color: '#888', marginBottom: 24 }}>Enter your secure 4-digit PIN to access visual edit mode.</p>
-        
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 20 }}>
-          {[0, 1, 2, 3].map(idx => {
-            const isFilled = pin.length > idx;
-            return (
-              <div
-                key={idx}
+        {/* Sliding View Toggle */}
+        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: 30, padding: 4, marginBottom: 24, border: '1px solid rgba(255,255,255,0.08)' }}>
+          <button
+            type="button"
+            onClick={() => setLoginView('pin')}
+            style={{
+              flex: 1, padding: '8px 16px', borderRadius: 24, fontSize: 13, fontWeight: 700,
+              color: loginView === 'pin' ? '#fff' : '#aaa',
+              background: loginView === 'pin' ? '#e50914' : 'transparent',
+              boxShadow: loginView === 'pin' ? '0 2px 10px rgba(229,9,20,0.4)' : 'none',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            🔑 PIN Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => setLoginView('create')}
+            style={{
+              flex: 1, padding: '8px 16px', borderRadius: 24, fontSize: 13, fontWeight: 700,
+              color: loginView === 'create' ? '#fff' : '#aaa',
+              background: loginView === 'create' ? '#e50914' : 'transparent',
+              boxShadow: loginView === 'create' ? '0 2px 10px rgba(229,9,20,0.4)' : 'none',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            ✨ Create Client Space
+          </button>
+        </div>
+
+        {loginView === 'pin' ? (
+          <div>
+            <span style={{ color: '#e50914', display: 'inline-flex', marginBottom: 12 }}>
+              <AppIcon type="lock" size={48} strokeWidth={1.6} />
+            </span>
+            <h2 style={{ fontSize: 24, fontWeight: 800, color: '#fff', marginBottom: 6 }}>Photographer Sign In</h2>
+            <p style={{ fontSize: 13, color: '#888', marginBottom: 24 }}>Enter your secure 4-digit PIN to access visual edit mode.</p>
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 20 }}>
+              {[0, 1, 2, 3].map(idx => {
+                const isFilled = pin.length > idx;
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      width: 24, height: 24, borderRadius: '50%',
+                      border: '2px solid rgba(255,255,255,0.3)',
+                      background: isFilled ? '#e50914' : 'transparent',
+                      transition: 'background 0.15s, transform 0.1s',
+                      transform: isFilled ? 'scale(1.15)' : 'none',
+                      boxShadow: isFilled ? '0 0 10px #e50914' : 'none'
+                    }}
+                  />
+                );
+              })}
+            </div>
+
+            {error && (
+              <p style={{ fontSize: 13, color: '#e50914', fontWeight: 600, marginBottom: 20 }}>
+                ❌ Invalid PIN. Please try again. (Hint: 4321 or 8888)
+              </p>
+            )}
+            {!error && <div style={{ height: 20, marginBottom: 20 }} />}
+
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 16, maxWidth: 280, margin: '0 auto 24px'
+            }}>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                <button
+                  type="button"
+                  key={num}
+                  onClick={() => handleKeyPress(num.toString())}
+                  style={{
+                    width: 60, height: 60, borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.06)', color: '#fff',
+                    fontSize: 22, fontWeight: 700, display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    margin: '0 auto', transition: 'background 0.15s, transform 0.1s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                >
+                  {num}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={onCancel}
                 style={{
-                  width: 24, height: 24, borderRadius: '50%',
-                  border: '2px solid rgba(255,255,255,0.3)',
-                  background: isFilled ? '#e50914' : 'transparent',
-                  transition: 'background 0.15s, transform 0.1s',
-                  transform: isFilled ? 'scale(1.15)' : 'none',
-                  boxShadow: isFilled ? '0 0 10px #e50914' : 'none'
+                  fontSize: 12, color: '#aaa', fontWeight: 600,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleKeyPress('0')}
+                style={{
+                  width: 60, height: 60, borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.06)', color: '#fff',
+                  fontSize: 22, fontWeight: 700, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  margin: '0 auto', transition: 'background 0.15s, transform 0.1s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+              >
+                0
+              </button>
+              <button
+                type="button"
+                onClick={handleBackspace}
+                style={{
+                  fontSize: 20, color: '#aaa', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center'
+                }}
+              >
+                ⌫
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleCreateSubmit} style={{ textAlign: 'left' }}>
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginBottom: 6, textAlign: 'center' }}>✨ Provision Client Portal</h2>
+            <p style={{ fontSize: 13, color: '#888', marginBottom: 20, textAlign: 'center' }}>Create a brand-new tenant space instantly with beautiful pre-seeded content.</p>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 12, color: '#aaa', fontWeight: 700, marginBottom: 6, textTransform: 'uppercase' }}>Couple / Event Names</label>
+              <input
+                type="text"
+                value={coupleName}
+                onChange={e => {
+                  setCoupleName(e.target.value);
+                  setSlug(normalizeSlug(e.target.value));
+                }}
+                style={{
+                  width: '100%', background: '#1f1f1f', border: '1.5px solid rgba(255,255,255,0.08)',
+                  borderRadius: 6, color: '#fff', padding: '10px 14px', fontSize: 14, outline: 'none',
+                }}
+                placeholder="e.g. Rohan & Kiara"
+                required
               />
-            );
-          })}
-        </div>
+            </div>
 
-        {error && (
-          <p style={{ fontSize: 13, color: '#e50914', fontWeight: 600, marginBottom: 20 }}>
-            ❌ Invalid PIN. Please try again. (Hint: 4321 or 8888)
-          </p>
-        )}
-        {!error && <div style={{ height: 20, marginBottom: 20 }} />}
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 12, color: '#aaa', fontWeight: 700, marginBottom: 6, textTransform: 'uppercase' }}>Workspace URL Slug</label>
+              <input
+                type="text"
+                value={slug}
+                onChange={e => setSlug(normalizeSlug(e.target.value))}
+                style={{
+                  width: '100%', background: '#1f1f1f', border: '1.5px solid rgba(255,255,255,0.08)',
+                  borderRadius: 6, color: '#fff', padding: '10px 14px', fontSize: 14, outline: 'none',
+                }}
+                placeholder="e.g. rohan-kiara"
+                required
+              />
+              <span style={{ fontSize: 11, color: '#888', marginTop: 4, display: 'block' }}>
+                Preview link: <strong style={{ color: '#e50914' }}>/w/{slug || '...'}</strong>
+              </span>
+            </div>
 
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: 16, maxWidth: 280, margin: '0 auto 24px'
-        }}>
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, color: '#aaa', fontWeight: 700, marginBottom: 6, textTransform: 'uppercase' }}>Secure Guest PIN</label>
+                <input
+                  type="text"
+                  maxLength={4}
+                  value={accessPin}
+                  onChange={e => setAccessPin(e.target.value.replace(/[^0-9]/g, ''))}
+                  style={{
+                    width: '100%', background: '#1f1f1f', border: '1.5px solid rgba(255,255,255,0.08)',
+                    borderRadius: 6, color: '#fff', padding: '10px 14px', fontSize: 14, outline: 'none',
+                  }}
+                  placeholder="4 digits, e.g. 2026"
+                  required
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, color: '#aaa', fontWeight: 700, marginBottom: 6, textTransform: 'uppercase' }}>Wedding Date</label>
+                <input
+                  type="text"
+                  value={date}
+                  onChange={e => setDate(e.target.value)}
+                  style={{
+                    width: '100%', background: '#1f1f1f', border: '1.5px solid rgba(255,255,255,0.08)',
+                    borderRadius: 6, color: '#fff', padding: '10px 14px', fontSize: 14, outline: 'none',
+                  }}
+                  placeholder="e.g. 24th Nov 2026"
+                />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 12, color: '#aaa', fontWeight: 700, marginBottom: 6, textTransform: 'uppercase' }}>Ceremony Venue Location</label>
+              <input
+                type="text"
+                value={venue}
+                onChange={e => setVenue(e.target.value)}
+                style={{
+                  width: '100%', background: '#1f1f1f', border: '1.5px solid rgba(255,255,255,0.08)',
+                  borderRadius: 6, color: '#fff', padding: '10px 14px', fontSize: 14, outline: 'none',
+                }}
+                placeholder="e.g. Lake Palace, Udaipur"
+              />
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', fontSize: 12, color: '#aaa', fontWeight: 700, marginBottom: 6, textTransform: 'uppercase' }}>Cover Poster Image (URL)</label>
+              <input
+                type="text"
+                value={coverUrl}
+                onChange={e => setCoverUrl(e.target.value)}
+                style={{
+                  width: '100%', background: '#1f1f1f', border: '1.5px solid rgba(255,255,255,0.08)',
+                  borderRadius: 6, color: '#fff', padding: '10px 14px', fontSize: 14, outline: 'none',
+                }}
+                placeholder="Optional image link"
+              />
+            </div>
+
             <button
-              key={num}
-              onClick={() => handleKeyPress(num.toString())}
+              type="submit"
               style={{
-                width: 60, height: 60, borderRadius: '50%',
-                background: 'rgba(255,255,255,0.06)', color: '#fff',
-                fontSize: 22, fontWeight: 700, display: 'flex',
-                alignItems: 'center', justifyContent: 'center',
-                border: '1px solid rgba(255,255,255,0.1)',
-                margin: '0 auto', transition: 'background 0.15s, transform 0.1s'
+                width: '100%', background: '#e50914', color: '#fff', padding: '12px 20px',
+                borderRadius: 6, fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer',
+                boxShadow: '0 4px 15px rgba(229,9,20,0.3)', marginBottom: 8
               }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
             >
-              {num}
+              🚀 Provision & Initialize Space
             </button>
-          ))}
-          <button
-            onClick={onCancel}
-            style={{
-              fontSize: 12, color: '#aaa', fontWeight: 600,
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => handleKeyPress('0')}
-            style={{
-              width: 60, height: 60, borderRadius: '50%',
-              background: 'rgba(255,255,255,0.06)', color: '#fff',
-              fontSize: 22, fontWeight: 700, display: 'flex',
-              alignItems: 'center', justifyContent: 'center',
-              border: '1px solid rgba(255,255,255,0.1)',
-              margin: '0 auto', transition: 'background 0.15s, transform 0.1s'
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-          >
-            0
-          </button>
-          <button
-            onClick={handleBackspace}
-            style={{
-              fontSize: 20, color: '#aaa', display: 'flex',
-              alignItems: 'center', justifyContent: 'center'
-            }}
-          >
-            ⌫
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={onCancel}
+              style={{
+                width: '100%', background: 'transparent', color: '#aaa', padding: '10px 20px',
+                borderRadius: 6, fontWeight: 600, fontSize: 13, border: '1px solid rgba(255,255,255,0.1)',
+                cursor: 'pointer'
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = '#fff'}
+              onMouseLeave={e => e.currentTarget.style.color = '#aaa'}
+            >
+              Cancel
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
@@ -2173,7 +2453,7 @@ const SectionEditorModal = ({ selectedElement, onSave, onClose, seasons = [] }) 
                   className="admin-select"
                 >
                   {seasons.map((s, idx) => (
-                    <option key={s.id} value={idx}>{s.seasonLabel || `Season ${idx+1}`} — {s.title}</option>
+                    <option key={s.id} value={idx}>{s.seasonLabel || `Season ${idx + 1}`} — {s.title}</option>
                   ))}
                 </select>
               </div>
@@ -2623,6 +2903,7 @@ const Navbar = ({ scrolled, activeSection, setActiveSection, profile, onSwitchPr
     { id: 'seasons', label: 'Seasons' },
     { id: 'films', label: 'Our Films' },
     { id: 'moments', label: 'Little Moments' },
+    { id: 'gallery', label: 'Wedding Gallery' },
   ];
 
   return (
@@ -2711,7 +2992,7 @@ const Navbar = ({ scrolled, activeSection, setActiveSection, profile, onSwitchPr
                 <strong style={{ color: '#fff' }}>{profile.name}</strong>
               </div>
             )}
-            
+
 
 
             <button
@@ -2792,18 +3073,18 @@ const HeroSection = ({ settings, onPlay, onMoreInfo, isEditMode, onEditClick }) 
           <span style={{ color: '#fff', fontSize: 11, fontWeight: 500, letterSpacing: '3px', textTransform: 'uppercase', opacity: 0.85 }}>A WEDDING ORIGINAL</span>
         </motion.div>
 
-        {/* Couple name in Hatolie font */}
+        {/* Couple name in Playfair Display font */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
         >
           <h1 style={{
-            fontFamily: 'Hatolie, serif',
+            fontFamily: '"Playfair Display", serif',
             fontSize: 'clamp(2.8rem, 5vw, 5rem)',
-            fontWeight: 400,
+            fontWeight: 800,
             lineHeight: 1.1,
-            letterSpacing: '2px',
+            letterSpacing: '1px',
             textShadow: '2px 4px 20px rgba(0,0,0,0.7)',
             color: '#fff',
           }}>
@@ -2882,7 +3163,7 @@ const HeroSection = ({ settings, onPlay, onMoreInfo, isEditMode, onEditClick }) 
             onMouseLeave={e => { e.currentTarget.style.background = 'rgba(109,109,110,0.7)'; }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
             </svg>
             More Info
           </button>
@@ -3050,7 +3331,7 @@ const Top10Card = ({ show, index, onPlay, myList = [], onToggleFavorite, isEditM
         alignItems: 'flex-end',
         position: 'relative',
         cursor: 'pointer',
-        zIndex: 100 - index 
+        zIndex: 100 - index
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -3066,11 +3347,11 @@ const Top10Card = ({ show, index, onPlay, myList = [], onToggleFavorite, isEditM
         {isEditMode && <div className="edit-badge" style={{ fontSize: 8, padding: '2px 5px' }}><AppIcon type="edit" size={8} /> Edit</div>}
         <div style={{ width: '100%', height: '100%', position: 'relative', background: '#333' }}>
           {show.thumbnail && !imgFailed ? (
-            <img 
-              className="thumb-img" 
-              src={show.thumbnail} 
-              alt={show.title} 
-              onError={() => setImgFailed(true)} 
+            <img
+              className="thumb-img"
+              src={show.thumbnail}
+              alt={show.title}
+              onError={() => setImgFailed(true)}
             />
           ) : (
             <div style={{
@@ -3176,10 +3457,11 @@ const AdminPanel = ({
   tenants = {},
   onUpdateTenants,
   activeSlug,
-  onSwitchActiveSlug
+  onSwitchActiveSlug,
+  onStartInlineEditing
 }) => {
   const [activeTab, setActiveTab] = useState(role === 'super_admin' ? 'super-analytics' : 'settings');
-  
+
   // Settings State
   const [coupleName, setCoupleName] = useState(eventSettings.coupleName || '');
   const [weddingDate, setWeddingDate] = useState(eventSettings.weddingDate || '');
@@ -3195,7 +3477,7 @@ const AdminPanel = ({
   const [selectedCollageId, setSelectedCollageId] = useState(initialCollages?.[0]?.id || '');
   const [editingCollageType, setEditingCollageType] = useState(initialCollages?.[0]?.type || 'mosaic');
   const [editingSlots, setEditingSlots] = useState(initialCollages?.[0]?.slots || {});
-  
+
   // Active Slot Editor States
   const [editingSlotKey, setEditingSlotKey] = useState(null);
   const [slotUrlInput, setSlotUrlInput] = useState('');
@@ -3278,8 +3560,8 @@ const AdminPanel = ({
       const randClient = clients[Math.floor(Math.random() * clients.length)];
 
       const date = new Date();
-      const timeStr = `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}:${date.getSeconds().toString().padStart(2,'0')}`;
-      
+      const timeStr = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`;
+
       setLiveLogs(prev => [
         { id: Date.now(), time: timeStr, message: `Guest from ${randCity} on ${randClient} portal is ${randAction}.` },
         ...prev.slice(0, 15)
@@ -3386,18 +3668,35 @@ const AdminPanel = ({
 
   const handleProvisionWorkspace = (e) => {
     e.preventDefault();
-    if (!provCoupleName || !provSlug || !provPin) {
+    const normalizedSlug = normalizeSlug(provSlug || provCoupleName);
+    if (!provCoupleName || !normalizedSlug || !provPin) {
       alert("Please fill in all required fields.");
       return;
     }
 
-    if (tenants[provSlug]) {
+    if (tenants[normalizedSlug]) {
       alert("A workspace with this URL slug already exists. Please choose a unique slug.");
       return;
     }
 
+    const seededVideos = DEFAULT_VIDEOS.map(v => ({ ...v, id: `${normalizedSlug}_${v.id}` }));
+    const seededFilms = DEFAULT_FILMS.map(f => ({ ...f, id: `${normalizedSlug}_${f.id}` }));
+    const seededCollages = DEFAULT_COLLAGE_LAYOUTS.map(c => ({ ...c, id: `${normalizedSlug}_${c.id}` }));
+    const seededSeries = {
+      ...DEFAULT_SERIES,
+      id: `${normalizedSlug}_${DEFAULT_SERIES.id}`,
+      seasons: DEFAULT_SERIES.seasons.map(s => ({
+        ...s,
+        id: `${normalizedSlug}_${s.id}`,
+        episodes: s.episodes.map(ep => ({
+          ...ep,
+          id: `${normalizedSlug}_${ep.id}`
+        }))
+      }))
+    };
+
     const newTenant = {
-      slug: provSlug,
+      slug: normalizedSlug,
       eventSettings: {
         coupleName: provCoupleName.toUpperCase(),
         weddingDate: provDate || 'Upcoming',
@@ -3411,52 +3710,20 @@ const AdminPanel = ({
         storageUsedGb: 0,
         coverImage: provCover || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80',
       },
-      weddingVideos: [],
-      collageLayouts: [
-        {
-          id: 'c1_' + Date.now(),
-          name: 'Ceremony Mosaic Highlights',
-          type: 'mosaic',
-          slots: {
-            slot1: { url: '', caption: '' },
-            slot2: { url: '', caption: '' },
-            slot3: { url: '', caption: '' }
-          }
-        }
-      ],
-      weddingSeries: {
-        id: 'series_' + Date.now(),
-        title: provCoupleName.toUpperCase(),
-        subtitle: 'A Wedding Original',
-        description: `Experience the full cinematic journey of ${provCoupleName}.`,
-        starring: ['Bride', 'Groom', 'Family', 'Friends'],
-        year: new Date().getFullYear().toString(),
-        totalSeasons: 1,
-        heroVideoUrl: '/Video/video_1.mp4',
-        genres: ['Romance', 'Celebration'],
-        seasons: [
-          {
-            id: 'season1_' + Date.now(),
-            title: 'GRAND UNION',
-            seasonNumber: 1,
-            subtitle: 'The Celebration Begins',
-            ageRating: 'U/A 16+',
-            thumbnail: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&q=80',
-            seasonLabel: 'Season 1',
-            episodes: []
-          }
-        ]
-      }
+      weddingVideos: seededVideos,
+      weddingFilms: seededFilms,
+      collageLayouts: seededCollages,
+      weddingSeries: seededSeries
     };
 
     const updatedTenants = {
       ...tenants,
-      [provSlug]: newTenant
+      [normalizedSlug]: newTenant
     };
 
     onUpdateTenants(updatedTenants);
     alert(`Successfully provisioned the '${provCoupleName}' workspace.`);
-    
+
     // Clear Form
     setProvCoupleName('');
     setProvSlug('');
@@ -3468,13 +3735,23 @@ const AdminPanel = ({
     setActiveTab('super-directory');
   };
 
+  const handleCopyClientLink = async (slug, mode = 'client') => {
+    const link = mode === 'admin' ? getAdminUrl(slug) : getClientUrl(slug);
+    try {
+      await navigator.clipboard.writeText(link);
+      alert(`${mode === 'admin' ? 'Editor' : 'Client'} link copied: ${link}`);
+    } catch {
+      window.prompt('Copy this link:', link);
+    }
+  };
+
   const handleToggleTenantStatus = (slug) => {
     const tenant = tenants[slug];
     if (!tenant) return;
-    
+
     const currentStatus = tenant.eventSettings.status || 'ACTIVE';
     const nextStatus = currentStatus === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
-    
+
     const updated = {
       ...tenants,
       [slug]: {
@@ -3491,10 +3768,10 @@ const AdminPanel = ({
   const handleQuotaBump = (slug) => {
     const tenant = tenants[slug];
     if (!tenant) return;
-    
+
     const currentLimit = tenant.eventSettings.storageLimitGb || 200;
     const nextLimit = currentLimit + 50;
-    
+
     const updated = {
       ...tenants,
       [slug]: {
@@ -3567,38 +3844,46 @@ const AdminPanel = ({
         {/* Outer Split screen */}
         <div className="admin-content" style={{ height: 600 }}>
           {/* Sidebar */}
-          <div className="admin-sidebar" style={{ width: 260 }}>
-            {role === 'super_admin' ? (
-              <>
-                <button className={`admin-menu-btn ${activeTab === 'super-analytics' ? 'active' : ''}`} onClick={() => setActiveTab('super-analytics')}>
-                  <AppIcon type="chart" size={16} /> Global Analytics Desk
-                </button>
-                <button className={`admin-menu-btn ${activeTab === 'super-directory' ? 'active' : ''}`} onClick={() => setActiveTab('super-directory')}>
-                  <AppIcon type="building" size={16} /> Client Portals Directory ({totalPortals})
-                </button>
-                <button className={`admin-menu-btn ${activeTab === 'super-provision' ? 'active' : ''}`} onClick={() => setActiveTab('super-provision')}>
-                  <AppIcon type="plus" size={16} /> Provision New Space
-                </button>
-              </>
-            ) : (
-              <>
-                <button className={`admin-menu-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-                  <AppIcon type="settings" size={16} /> Workspace Setup Settings
-                </button>
-                <button className={`admin-menu-btn ${activeTab === 'manage' ? 'active' : ''}`} onClick={() => setActiveTab('manage')}>
-                  <AppIcon type="folder" size={16} /> Manage Ceremony Clips ({videos.length})
-                </button>
-                <button className={`admin-menu-btn ${activeTab === 'add-video' ? 'active' : ''}`} onClick={() => { setEditingVideoId(null); setActiveTab('add-video'); }}>
-                  <AppIcon type={editingVideoId ? 'edit' : 'video'} size={16} /> {editingVideoId ? 'Edit Selected Video' : 'Upload / Add Video'}
-                </button>
-                <button className={`admin-menu-btn ${activeTab === 'collage' ? 'active' : ''}`} onClick={() => setActiveTab('collage')}>
-                  <AppIcon type="camera" size={16} /> Manage Photo Collage
-                </button>
-                <button className={`admin-menu-btn ${activeTab === 'local-analytics' ? 'active' : ''}`} onClick={() => setActiveTab('local-analytics')}>
-                  <AppIcon type="chart" size={16} /> Local Analytics & Storage
-                </button>
-              </>
+          <div className="admin-sidebar" style={{ width: 260, display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {/* Group 1: Global Management */}
+            <div className="admin-menu-group-label" style={{ padding: '12px 14px 6px', fontSize: 11, textTransform: 'uppercase', color: '#e50914', fontWeight: 800, letterSpacing: '1px' }}>GLOBAL PORTALS MANAGER</div>
+
+            {role === 'super_admin' && (
+              <button className={`admin-menu-btn ${activeTab === 'super-analytics' ? 'active' : ''}`} onClick={() => setActiveTab('super-analytics')}>
+                <AppIcon type="chart" size={16} /> Global Analytics Desk
+              </button>
             )}
+
+            <button className={`admin-menu-btn ${activeTab === 'super-directory' ? 'active' : ''}`} onClick={() => setActiveTab('super-directory')}>
+              <AppIcon type="building" size={16} /> Client Portals Directory ({totalPortals})
+            </button>
+
+            <button className={`admin-menu-btn ${activeTab === 'super-provision' ? 'active' : ''}`} onClick={() => setActiveTab('super-provision')}>
+              <AppIcon type="plus" size={16} /> Create New Client Space
+            </button>
+
+            {/* Group 2: Active Workspace Editor */}
+            <div className="admin-menu-group-label" style={{ marginTop: 16, padding: '12px 14px 6px', fontSize: 11, textTransform: 'uppercase', color: '#e50914', fontWeight: 800, letterSpacing: '1px' }}>ACTIVE PORTAL BUILDER ({eventSettings.coupleName})</div>
+
+            <button className={`admin-menu-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
+              <AppIcon type="settings" size={16} /> Workspace Setup Settings
+            </button>
+
+            <button className={`admin-menu-btn ${activeTab === 'manage' ? 'active' : ''}`} onClick={() => setActiveTab('manage')}>
+              <AppIcon type="folder" size={16} /> Manage Ceremony Clips ({videos.length})
+            </button>
+
+            <button className={`admin-menu-btn ${activeTab === 'add-video' ? 'active' : ''}`} onClick={() => { setEditingVideoId(null); setActiveTab('add-video'); }}>
+              <AppIcon type={editingVideoId ? 'edit' : 'video'} size={16} /> {editingVideoId ? 'Edit Selected Video' : 'Upload / Add Video'}
+            </button>
+
+            <button className={`admin-menu-btn ${activeTab === 'collage' ? 'active' : ''}`} onClick={() => setActiveTab('collage')}>
+              <AppIcon type="camera" size={16} /> Manage Photo Collage
+            </button>
+
+            <button className={`admin-menu-btn ${activeTab === 'local-analytics' ? 'active' : ''}`} onClick={() => setActiveTab('local-analytics')}>
+              <AppIcon type="chart" size={16} /> Local Analytics & Storage
+            </button>
 
             <div style={{ marginTop: 'auto', padding: 14, background: 'rgba(255,255,255,0.02)', borderRadius: 6, border: '1px dashed rgba(255,255,255,0.1)', fontSize: 11, color: '#888', lineHeight: 1.5 }}>
               <span style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 6 }}><AppIcon type="shield" size={14} /></span>
@@ -3612,7 +3897,7 @@ const AdminPanel = ({
             {role === 'super_admin' && activeTab === 'super-analytics' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                 <h3 style={{ color: '#e50914', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 8 }}>Global Performance Analytics</h3>
-                
+
                 {/* Metric Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
                   <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: 16 }}>
@@ -3683,7 +3968,7 @@ const AdminPanel = ({
               </div>
             )}
 
-            {role === 'super_admin' && activeTab === 'super-directory' && (
+            {activeTab === 'super-directory' && (
               <div>
                 <h3 style={{ color: '#e50914', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 8, marginBottom: 16 }}>Client Workspace Directory</h3>
                 <div style={{ maxHeight: 460, overflowY: 'auto' }}>
@@ -3701,7 +3986,7 @@ const AdminPanel = ({
                       {Object.values(tenants).map((t) => {
                         const isSuspended = t.eventSettings.status === 'SUSPENDED';
                         const isExpired = t.eventSettings.expiryDate && new Date() > new Date(t.eventSettings.expiryDate);
-                        
+
                         return (
                           <tr key={t.slug} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                             <td>
@@ -3738,7 +4023,19 @@ const AdminPanel = ({
                                   onClick={() => handleBypassLogin(t.slug)}
                                   style={{ background: '#2980b9', color: '#fff', fontSize: 11, padding: '4px 8px', borderRadius: 4, fontWeight: 'bold' }}
                                 >
-                                  Bypass Login
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleCopyClientLink(t.slug, 'client')}
+                                  style={{ background: '#1f6f54', color: '#fff', fontSize: 11, padding: '4px 8px', borderRadius: 4, fontWeight: 'bold' }}
+                                >
+                                  Copy Client Link
+                                </button>
+                                <button
+                                  onClick={() => handleCopyClientLink(t.slug, 'admin')}
+                                  style={{ background: '#34495e', color: '#fff', fontSize: 11, padding: '4px 8px', borderRadius: 4, fontWeight: 'bold' }}
+                                >
+                                  Copy Editor Link
                                 </button>
                                 <button
                                   onClick={() => handleQuotaBump(t.slug)}
@@ -3763,22 +4060,22 @@ const AdminPanel = ({
               </div>
             )}
 
-            {role === 'super_admin' && activeTab === 'super-provision' && (
+            {activeTab === 'super-provision' && (
               <form onSubmit={handleProvisionWorkspace}>
                 <h3 style={{ color: '#e50914', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 8, marginBottom: 16 }}>Provision New Wedding Workspace</h3>
-                
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                   <div className="admin-form-group">
                     <label className="admin-label">Workspace Title (e.g. Akash & Sneha)</label>
                     <input type="text" value={provCoupleName} onChange={e => {
                       setProvCoupleName(e.target.value);
                       // Auto slug generation
-                      setProvSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'));
+                      setProvSlug(normalizeSlug(e.target.value));
                     }} className="admin-input" placeholder="Enter Couple / Event Title" required />
                   </div>
                   <div className="admin-form-group">
                     <label className="admin-label">Workspace URL Slug (Unique deep link key)</label>
-                    <input type="text" value={provSlug} onChange={e => setProvSlug(e.target.value.toLowerCase())} className="admin-input" placeholder="e.g. akash-sneha" required />
+                    <input type="text" value={provSlug} onChange={e => setProvSlug(normalizeSlug(e.target.value))} className="admin-input" placeholder="e.g. akash-sneha" required />
                   </div>
                 </div>
 
@@ -3826,10 +4123,10 @@ const AdminPanel = ({
             )}
 
             {/* PHOTOGRAPHER CONSOLE WORKSPACE */}
-            {role === 'photographer' && activeTab === 'settings' && (
+            {activeTab === 'settings' && (
               <form onSubmit={handleSaveSettings}>
                 <h3 style={{ color: '#e50914', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 8, marginBottom: 16 }}>Wedding Ceremony Meta Details</h3>
-                
+
                 <div className="admin-form-group">
                   <label className="admin-label">Couple Names (e.g. MRUNAL & ANIRUDH)</label>
                   <input type="text" value={coupleName} onChange={e => setCoupleName(e.target.value)} className="admin-input" required />
@@ -3871,19 +4168,35 @@ const AdminPanel = ({
                   </div>
                 </div>
 
-                <button
-                  type="submit"
-                  style={{
-                    background: '#e50914', color: '#fff', padding: '12px 24px', borderRadius: 4,
-                    fontWeight: 700, fontSize: 14, marginTop: 10, boxShadow: '0 4px 15px rgba(229,9,20,0.3)'
-                  }}
-                >
-                  Save Workspace Invitation Settings
-                </button>
+                <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
+                  <button
+                    type="submit"
+                    style={{
+                      background: '#e50914', color: '#fff', padding: '12px 24px', borderRadius: 4,
+                      fontWeight: 700, fontSize: 14, boxShadow: '0 4px 15px rgba(229,9,20,0.3)'
+                    }}
+                  >
+                    Save Workspace Invitation Settings
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onStartInlineEditing}
+                    style={{
+                      background: 'transparent', color: '#fff', padding: '12px 24px', borderRadius: 4,
+                      fontWeight: 700, fontSize: 14, border: '1.5px solid #e50914',
+                      boxShadow: '0 4px 15px rgba(229,9,20,0.1)', transition: 'all 0.3s ease',
+                      display: 'flex', alignItems: 'center', gap: 8
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#e50914'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    🎨 Enter Live Visual Editor
+                  </button>
+                </div>
               </form>
             )}
 
-            {role === 'photographer' && activeTab === 'manage' && (
+            {activeTab === 'manage' && (
               <div>
                 <h3 style={{ color: '#e50914', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 8, marginBottom: 16 }}>Currently Published Videos</h3>
                 <div style={{ maxHeight: 460, overflowY: 'auto' }}>
@@ -3937,7 +4250,7 @@ const AdminPanel = ({
               </div>
             )}
 
-            {role === 'photographer' && activeTab === 'add-video' && (
+            {activeTab === 'add-video' && (
               <div>
                 {isTranscoding ? (
                   <div style={{
@@ -3951,7 +4264,7 @@ const AdminPanel = ({
                       borderTop: '4px solid #e50914', borderRadius: '50%',
                       animation: 'spin 1s linear infinite', marginBottom: 24
                     }} />
-                    
+
                     <style>{`
                       @keyframes spin {
                         0% { transform: rotate(0deg); }
@@ -4012,6 +4325,7 @@ const AdminPanel = ({
                           <option value="Fashion & Beauty">Fashion & Beauty</option>
                           <option value="Food & Drinks">Food & Drinks</option>
                           <option value="Lifestyle & Wellness">Lifestyle & Wellness</option>
+                          <option value="Films">Our Films</option>
                         </select>
                       </div>
                       <div className="admin-form-group">
@@ -4054,7 +4368,7 @@ const AdminPanel = ({
                         <div className="admin-form-group" style={{ marginTop: 12 }}>
                           <label className="admin-label">Select Top Rank Slot (1 - 10)</label>
                           <select value={vRank} onChange={e => setVRank(e.target.value)} className="admin-select" style={{ maxWidth: 120 }}>
-                            {[1,2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>Slot Rank {n}</option>)}
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => <option key={n} value={n}>Slot Rank {n}</option>)}
                           </select>
                         </div>
                       )}
@@ -4073,7 +4387,7 @@ const AdminPanel = ({
               </div>
             )}
 
-            {role === 'photographer' && activeTab === 'collage' && (
+            {activeTab === 'collage' && (
               <div style={{ display: 'flex', flexType: 'column', flexDirection: 'column', gap: 20 }}>
                 <div>
                   <h3 style={{ color: '#e50914', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 8, marginBottom: 12 }}>
@@ -4260,7 +4574,7 @@ const AdminPanel = ({
 
                 {/* Main Interactive Editor Workspace */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 20, minHeight: 300 }}>
-                  
+
                   {/* Left: Dummy Layout Visualization */}
                   <div style={{ background: '#1c1c1c', padding: 16, borderRadius: 8, border: '1px solid #2e2e2e' }}>
                     <div style={{ fontSize: 12, color: '#888', marginBottom: 12, display: 'flex', justifyContent: 'space-between' }}>
@@ -4447,10 +4761,10 @@ const AdminPanel = ({
               </div>
             )}
 
-            {role === 'photographer' && activeTab === 'local-analytics' && (
+            {activeTab === 'local-analytics' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                 <h3 style={{ color: '#e50914', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 8 }}>Local Workspace Performance Statistics</h3>
-                
+
                 {/* Local cards */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
                   <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: 16 }}>
@@ -4523,7 +4837,7 @@ const AdminPanel = ({
 const PlayerScreen = ({ activeVideo, onBack }) => {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
-  
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -4865,7 +5179,7 @@ const PlayerScreen = ({ activeVideo, onBack }) => {
                 onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
               >
                 <svg viewBox="0 0 24 24" width="38" height="38" fill="currentColor">
-                  <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8zm-1.33 9.48h-.76v-.35l.93-.66h.47v2.53h-.64v-1.52zm2.86-.33c0-.3-.04-.54-.12-.72a.85.85 0 0 0-.32-.38c-.14-.09-.32-.14-.54-.14s-.4.05-.54.14a.89.89 0 0 0-.31.38c-.08.18-.12.42-.12.72v.35c0 .3.04.54.12.72.08.18.18.31.31.39.14.08.32.13.54.13s.4-.05.54-.13a.9.9 0 0 0 .32-.39c.08-.18.12-.42.12-.72v-.35zm-.64-.02c0 .19-.02.34-.06.43-.04.09-.1.14-.18.14s-.14-.05-.18-.14c-.04-.09-.06-.24-.06-.43v-.32c0-.19.02-.33.06-.43.04-.09.1-.14.18-.14s.14.05.18.14c.04.09.06.24.06.43v.32z"/>
+                  <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8zm-1.33 9.48h-.76v-.35l.93-.66h.47v2.53h-.64v-1.52zm2.86-.33c0-.3-.04-.54-.12-.72a.85.85 0 0 0-.32-.38c-.14-.09-.32-.14-.54-.14s-.4.05-.54.14a.89.89 0 0 0-.31.38c-.08.18-.12.42-.12.72v.35c0 .3.04.54.12.72.08.18.18.31.31.39.14.08.32.13.54.13s.4-.05.54-.13a.9.9 0 0 0 .32-.39c.08-.18.12-.42.12-.72v-.35zm-.64-.02c0 .19-.02.34-.06.43-.04.09-.1.14-.18.14s-.14-.05-.18-.14c-.04-.09-.06-.24-.06-.43v-.32c0-.19.02-.33.06-.43.04-.09.1-.14.18-.14s.14.05.18.14c.04.09.06.24.06.43v.32z" />
                 </svg>
               </button>
 
@@ -4895,11 +5209,11 @@ const PlayerScreen = ({ activeVideo, onBack }) => {
               >
                 {isPlaying ? (
                   <svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor">
-                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
                   </svg>
                 ) : (
                   <svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor" style={{ marginLeft: 6 }}>
-                    <path d="M8 5v14l11-7z"/>
+                    <path d="M8 5v14l11-7z" />
                   </svg>
                 )}
               </button>
@@ -4911,7 +5225,7 @@ const PlayerScreen = ({ activeVideo, onBack }) => {
                 onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
               >
                 <svg viewBox="0 0 24 24" width="38" height="38" fill="currentColor">
-                  <path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8zm-1.33 9.48h-.76v-.35l.93-.66h.47v2.53h-.64v-1.52zm2.86-.33c0-.3-.04-.54-.12-.72a.85.85 0 0 0-.32-.38c-.14-.09-.32-.14-.54-.14s-.4.05-.54.14a.89.89 0 0 0-.31.38c-.08.18-.12.42-.12.72v.35c0 .3.04.54.12.72.08.18.18.31.31.39.14.08.32.13.54.13s.4-.05.54-.13a.9.9 0 0 0 .32-.39c.08-.18.12-.42.12-.72v-.35zm-.64-.02c0 .19-.02.34-.06.43-.04.09-.1.14-.18.14s-.14-.05-.18-.14c-.04-.09-.06-.24-.06-.43v-.32c0-.19.02-.33.06-.43.04-.09.1-.14.18-.14s.14.05.18.14c.04.09.06.24.06.43v.32z"/>
+                  <path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8zm-1.33 9.48h-.76v-.35l.93-.66h.47v2.53h-.64v-1.52zm2.86-.33c0-.3-.04-.54-.12-.72a.85.85 0 0 0-.32-.38c-.14-.09-.32-.14-.54-.14s-.4.05-.54.14a.89.89 0 0 0-.31.38c-.08.18-.12.42-.12.72v.35c0 .3.04.54.12.72.08.18.18.31.31.39.14.08.32.13.54.13s.4-.05.54-.13a.9.9 0 0 0 .32-.39c.08-.18.12-.42.12-.72v-.35zm-.64-.02c0 .19-.02.34-.06.43-.04.09-.1.14-.18.14s-.14-.05-.18-.14c-.04-.09-.06-.24-.06-.43v-.32c0-.19.02-.33.06-.43.04-.09.1-.14.18-.14s.14.05.18.14c.04.09.06.24.06.43v.32z" />
                 </svg>
               </button>
             </div>
@@ -4947,11 +5261,11 @@ const PlayerScreen = ({ activeVideo, onBack }) => {
                   >
                     {isPlaying ? (
                       <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
-                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
                       </svg>
                     ) : (
                       <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
-                        <path d="M8 5v14l11-7z"/>
+                        <path d="M8 5v14l11-7z" />
                       </svg>
                     )}
                   </button>
@@ -4964,7 +5278,7 @@ const PlayerScreen = ({ activeVideo, onBack }) => {
                     onMouseOut={(e) => e.currentTarget.style.color = '#fff'}
                   >
                     <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
-                      <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8zm-1.33 9.48h-.76v-.35l.93-.66h.47v2.53h-.64v-1.52zm2.86-.33c0-.3-.04-.54-.12-.72a.85.85 0 0 0-.32-.38c-.14-.09-.32-.14-.54-.14s-.4.05-.54.14a.89.89 0 0 0-.31.38c-.08.18-.12.42-.12.72v.35c0 .3.04.54.12.72.08.18.18.31.31.39.14.08.32.13.54.13s.4-.05.54-.13a.9.9 0 0 0 .32-.39c.08-.18.12-.42.12-.72v-.35zm-.64-.02c0 .19-.02.34-.06.43-.04.09-.1.14-.18.14s-.14-.05-.18-.14c-.04-.09-.06-.24-.06-.43v-.32c0-.19.02-.33.06-.43.04-.09.1-.14.18-.14s.14.05.18.14c.04.09.06.24.06.43v.32z"/>
+                      <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8zm-1.33 9.48h-.76v-.35l.93-.66h.47v2.53h-.64v-1.52zm2.86-.33c0-.3-.04-.54-.12-.72a.85.85 0 0 0-.32-.38c-.14-.09-.32-.14-.54-.14s-.4.05-.54.14a.89.89 0 0 0-.31.38c-.08.18-.12.42-.12.72v.35c0 .3.04.54.12.72.08.18.18.31.31.39.14.08.32.13.54.13s.4-.05.54-.13a.9.9 0 0 0 .32-.39c.08-.18.12-.42.12-.72v-.35zm-.64-.02c0 .19-.02.34-.06.43-.04.09-.1.14-.18.14s-.14-.05-.18-.14c-.04-.09-.06-.24-.06-.43v-.32c0-.19.02-.33.06-.43.04-.09.1-.14.18-.14s.14.05.18.14c.04.09.06.24.06.43v.32z" />
                     </svg>
                   </button>
 
@@ -4976,7 +5290,7 @@ const PlayerScreen = ({ activeVideo, onBack }) => {
                     onMouseOut={(e) => e.currentTarget.style.color = '#fff'}
                   >
                     <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
-                      <path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8zm-1.33 9.48h-.76v-.35l.93-.66h.47v2.53h-.64v-1.52zm2.86-.33c0-.3-.04-.54-.12-.72a.85.85 0 0 0-.32-.38c-.14-.09-.32-.14-.54-.14s-.4.05-.54.14a.89.89 0 0 0-.31.38c-.08.18-.12.42-.12.72v.35c0 .3.04.54.12.72.08.18.18.31.31.39.14.08.32.13.54.13s.4-.05.54-.13a.9.9 0 0 0 .32-.39c.08-.18.12-.42.12-.72v-.35zm-.64-.02c0 .19-.02.34-.06.43-.04.09-.1.14-.18.14s-.14-.05-.18-.14c-.04-.09-.06-.24-.06-.43v-.32c0-.19.02-.33.06-.43.04-.09.1-.14.18-.14s.14.05.18.14c.04.09.06.24.06.43v.32z"/>
+                      <path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8zm-1.33 9.48h-.76v-.35l.93-.66h.47v2.53h-.64v-1.52zm2.86-.33c0-.3-.04-.54-.12-.72a.85.85 0 0 0-.32-.38c-.14-.09-.32-.14-.54-.14s-.4.05-.54.14a.89.89 0 0 0-.31.38c-.08.18-.12.42-.12.72v.35c0 .3.04.54.12.72.08.18.18.31.31.39.14.08.32.13.54.13s.4-.05.54-.13a.9.9 0 0 0 .32-.39c.08-.18.12-.42.12-.72v-.35zm-.64-.02c0 .19-.02.34-.06.43-.04.09-.1.14-.18.14s-.14-.05-.18-.14c-.04-.09-.06-.24-.06-.43v-.32c0-.19.02-.33.06-.43.04-.09.1-.14.18-.14s.14.05.18.14c.04.09.06.24.06.43v.32z" />
                     </svg>
                   </button>
 
@@ -4990,11 +5304,11 @@ const PlayerScreen = ({ activeVideo, onBack }) => {
                     >
                       {isMuted ? (
                         <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                          <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.21.05-.42.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+                          <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.21.05-.42.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
                         </svg>
                       ) : (
                         <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
                         </svg>
                       )}
                     </button>
@@ -5046,7 +5360,7 @@ const PlayerScreen = ({ activeVideo, onBack }) => {
                       }}
                     >
                       <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                        <path d="M20.38 8.57l-1.23 1.85a8 8 0 0 1-.22 7.58H5.07A8 8 0 0 1 15.58 6l1.85-1.23A10 10 0 0 0 2 16c0 5.52 4.48 10 10 10s10-4.48 10-10a9.9 9.9 0 0 0-1.62-7.43zM12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm1-8h-2v4h2V2zm-7.66 3.05l-1.41-1.41 2.83-2.83 1.41 1.41-2.83 2.83zm13.32-1.41l-1.41 1.41 2.83 2.83 1.41-1.41-2.83-2.83z"/>
+                        <path d="M20.38 8.57l-1.23 1.85a8 8 0 0 1-.22 7.58H5.07A8 8 0 0 1 15.58 6l1.85-1.23A10 10 0 0 0 2 16c0 5.52 4.48 10 10 10s10-4.48 10-10a9.9 9.9 0 0 0-1.62-7.43zM12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm1-8h-2v4h2V2zm-7.66 3.05l-1.41-1.41 2.83-2.83 1.41 1.41-2.83 2.83zm13.32-1.41l-1.41 1.41 2.83 2.83 1.41-1.41-2.83-2.83z" />
                       </svg>
                       <span>{playbackRate === 1 ? '1.0x (Normal)' : `${playbackRate}x`}</span>
                     </button>
@@ -5200,9 +5514,9 @@ const DetailPage = ({ series, onPlay, onBack, initialSeasonIdx = 0 }) => {
             A WEDDING ORIGINAL
           </span>
           <h1 style={{
-            fontFamily: 'Hatolie, serif',
+            fontFamily: '"Playfair Display", serif',
             fontSize: 'clamp(2.5rem, 4.5vw, 4.5rem)',
-            fontWeight: 400, letterSpacing: '2px', color: '#fff',
+            fontWeight: 800, letterSpacing: '1px', color: '#fff',
             textShadow: '2px 4px 20px rgba(0,0,0,0.7)', lineHeight: 1.1,
           }}>
             {series.title}
@@ -5226,7 +5540,7 @@ const DetailPage = ({ series, onPlay, onBack, initialSeasonIdx = 0 }) => {
               fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, cursor: 'default', border: 'none',
             }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
               </svg>
               More Info
             </button>
@@ -5341,7 +5655,7 @@ const DetailPage = ({ series, onPlay, onBack, initialSeasonIdx = 0 }) => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, marginLeft: 16 }}>
                     <span style={{ color: '#aaa', fontSize: 13 }}>{ep.duration}</span>
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="rgba(255,255,255,0.4)" style={{ cursor: 'pointer', flexShrink: 0 }}>
-                      <path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/>
+                      <path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z" />
                     </svg>
                   </div>
                 </div>
@@ -5359,31 +5673,42 @@ const DetailPage = ({ series, onPlay, onBack, initialSeasonIdx = 0 }) => {
    MAIN APPLICATION PORTAL
    ============================================================ */
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState('intro');
+  const initialRouteRef = useRef(getRouteState());
+  const initialTenantsRef = useRef(loadStoredTenants());
+  const initialSlugRef = useRef(
+    initialRouteRef.current.slug ||
+    localStorage.getItem(ACTIVE_SLUG_STORAGE_KEY) ||
+    Object.keys(initialTenantsRef.current)[0]
+  );
+
+  const [tenants, setTenants] = useState(initialTenantsRef.current);
+  const [activeSlug, setActiveSlug] = useState(
+    initialTenantsRef.current[initialSlugRef.current] ? initialSlugRef.current : Object.keys(initialTenantsRef.current)[0]
+  );
+  const [adminRole, setAdminRole] = useState('photographer');
+  const [currentScreen, setCurrentScreen] = useState(() => {
+    if (initialRouteRef.current.mode === 'hub') return 'client-hub';
+    return 'intro';
+  });
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [scrolled, setScrolled] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [activeVideo, setActiveVideo] = useState(null);
-  
+
   // Left sidebar navigation states
   const [activeSection, setActiveSection] = useState('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [myList, setMyList] = useState(() => {
-    const saved = localStorage.getItem('wedflix_mylist');
+    const saved = localStorage.getItem(`wedflix_mylist_${initialSlugRef.current}`);
     return saved ? JSON.parse(saved) : [];
   });
-  
+
   // Dynamic persistent states
   const [weddingVideos, setWeddingVideos] = useState([]);
+  const [weddingFilms, setWeddingFilms] = useState([]);
   const [eventSettings, setEventSettings] = useState(DEFAULT_EVENT_SETTINGS);
-  const [collageLayouts, setCollageLayouts] = useState(() => {
-    const saved = localStorage.getItem('wedflix_collages');
-    return saved ? JSON.parse(saved) : DEFAULT_COLLAGE_LAYOUTS;
-  });
-  const [weddingSeries, setWeddingSeries] = useState(() => {
-    const saved = localStorage.getItem('wedflix_series');
-    return saved ? JSON.parse(saved) : DEFAULT_SERIES;
-  });
+  const [collageLayouts, setCollageLayouts] = useState(DEFAULT_COLLAGE_LAYOUTS);
+  const [weddingSeries, setWeddingSeries] = useState(DEFAULT_SERIES);
   const [selectedGalleryPhoto, setSelectedGalleryPhoto] = useState(null);
 
   // Visual Editor Staging States
@@ -5392,37 +5717,217 @@ export default function App() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailSeasonIdx, setDetailSeasonIdx] = useState(0);
   const [selectedEditElement, setSelectedEditElement] = useState(null); // { type, key, data }
-  
+
   // Staging buffers for drafts
   const [draftVideos, setDraftVideos] = useState([]);
+  const [draftFilms, setDraftFilms] = useState([]);
   const [draftSettings, setDraftSettings] = useState(DEFAULT_EVENT_SETTINGS);
   const [draftCollages, setDraftCollages] = useState([]);
   const [draftSeries, setDraftSeries] = useState(DEFAULT_SERIES);
 
-  const handleStartEditMode = () => {
+  const persistTenants = useCallback((nextTenants) => {
+    localStorage.setItem(TENANTS_STORAGE_KEY, JSON.stringify(nextTenants));
+    localStorage.setItem(TENANT_DATA_VERSION_KEY, TENANT_DATA_VERSION);
+    setTenants(nextTenants);
+  }, []);
+
+  const handleProvisionTenantFromLogin = useCallback((slug, newTenant) => {
+    const freshTenants = loadStoredTenants();
+    const updated = { ...freshTenants, [slug]: newTenant };
+    persistTenants(updated);
+  }, [persistTenants]);
+
+  const updateActiveTenant = useCallback((patch) => {
+    setTenants(prev => {
+      const current = prev[activeSlug];
+      if (!current) return prev;
+      const nextTenants = {
+        ...prev,
+        [activeSlug]: {
+          ...current,
+          ...patch,
+          eventSettings: patch.eventSettings || current.eventSettings,
+          weddingVideos: patch.weddingVideos || current.weddingVideos,
+          weddingFilms: patch.weddingFilms || current.weddingFilms,
+          collageLayouts: patch.collageLayouts || current.collageLayouts,
+          weddingSeries: patch.weddingSeries || current.weddingSeries,
+        }
+      };
+      localStorage.setItem(TENANTS_STORAGE_KEY, JSON.stringify(nextTenants));
+      localStorage.setItem(TENANT_DATA_VERSION_KEY, TENANT_DATA_VERSION);
+      return nextTenants;
+    });
+  }, [activeSlug]);
+
+  const switchWorkspace = useCallback((slug, options = {}) => {
+    const normalized = normalizeSlug(slug);
+    if (!tenants[normalized]) return false;
+
+    setActiveSlug(normalized);
+    localStorage.setItem(ACTIVE_SLUG_STORAGE_KEY, normalized);
+    setSelectedProfile(null);
+    setActiveSection('home');
+    setSearchQuery('');
+    setDetailOpen(false);
+    setActiveVideo(null);
+    setIsEditMode(false);
+    setSelectedEditElement(null);
+
+    if (options.mode === 'admin') {
+      window.history.pushState({}, '', `/admin/${normalized}`);
+      setAdminRole(prev => prev === 'super_admin' ? 'super_admin' : 'photographer');
+      setAdminOpen(true);
+      setCurrentScreen('home');
+    } else {
+      window.history.pushState({}, '', `/w/${normalized}`);
+      setAdminOpen(false);
+      setCurrentScreen(options.skipIntro ? 'profiles' : 'intro');
+    }
+
+    return true;
+  }, [tenants]);
+
+  const updateAllTenants = useCallback((nextTenants) => {
+    persistTenants(nextTenants);
+    if (!nextTenants[activeSlug]) {
+      const nextSlug = Object.keys(nextTenants)[0];
+      if (nextSlug) {
+        setActiveSlug(nextSlug);
+        localStorage.setItem(ACTIVE_SLUG_STORAGE_KEY, nextSlug);
+        window.history.pushState({}, '', `/w/${nextSlug}`);
+      }
+    }
+  }, [activeSlug, persistTenants]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const route = getRouteState();
+      if (route.slug && tenants[route.slug]) {
+        setActiveSlug(route.slug);
+        localStorage.setItem(ACTIVE_SLUG_STORAGE_KEY, route.slug);
+      }
+      setAdminOpen(route.mode === 'admin' || route.mode === 'admin-client');
+      setAdminRole(route.mode === 'admin' ? 'super_admin' : 'photographer');
+      setCurrentScreen(route.mode === 'hub' ? 'client-hub' : 'intro');
+      setSelectedProfile(null);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [tenants]);
+
+  useEffect(() => {
+    const route = initialRouteRef.current;
+    if (route.slug && tenants[route.slug]) {
+      localStorage.setItem(ACTIVE_SLUG_STORAGE_KEY, route.slug);
+    }
+    if (route.mode === 'admin') {
+      setAdminRole('super_admin');
+      setPinLoginOpen(true);
+      setCurrentScreen('client-hub');
+    } else if (route.mode === 'admin-client') {
+      setAdminRole('photographer');
+      setPinLoginOpen(true);
+      setCurrentScreen('intro');
+    }
+  }, []);
+
+  useEffect(() => {
+    const activeTenant = tenants[activeSlug];
+    if (!activeTenant) return;
+
+    hydrateLocalMediaRefs(activeTenant.weddingVideos || []).then(setWeddingVideos).catch(() => setWeddingVideos(activeTenant.weddingVideos || []));
+
+    // Dynamic tenant-specific films
+    const tenantFilms = activeTenant.weddingFilms || DEFAULT_FILMS.map(f => ({ ...f, id: `${activeSlug}_${f.id}` }));
+    hydrateLocalMediaRefs(tenantFilms).then(setWeddingFilms).catch(() => setWeddingFilms(tenantFilms));
+
+    hydrateLocalMediaRefs(activeTenant.eventSettings || DEFAULT_EVENT_SETTINGS).then(setEventSettings).catch(() => setEventSettings(activeTenant.eventSettings || DEFAULT_EVENT_SETTINGS));
+    hydrateLocalMediaRefs(activeTenant.collageLayouts || DEFAULT_COLLAGE_LAYOUTS).then(setCollageLayouts).catch(() => setCollageLayouts(activeTenant.collageLayouts || DEFAULT_COLLAGE_LAYOUTS));
+    hydrateLocalMediaRefs(activeTenant.weddingSeries || DEFAULT_SERIES).then(setWeddingSeries).catch(() => setWeddingSeries(activeTenant.weddingSeries || DEFAULT_SERIES));
+
+    const savedList = localStorage.getItem(`wedflix_mylist_${activeSlug}`);
+    setMyList(savedList ? JSON.parse(savedList) : []);
+  }, [activeSlug, tenants]);
+
+  const handleStartEditMode = (role = 'photographer', slugFromPin) => {
+    if (role === 'client') {
+      setPinLoginOpen(false);
+      if (slugFromPin) switchWorkspace(slugFromPin, { skipIntro: true });
+      setCurrentScreen('profiles');
+      return;
+    }
+
+    if (role === 'super_admin') {
+      setAdminRole('super_admin');
+      setAdminOpen(true);
+      setPinLoginOpen(false);
+      window.history.pushState({}, '', '/admin');
+      return;
+    }
+
+    if (role === 'photographer-new-workspace') {
+      const normalized = normalizeSlug(slugFromPin);
+      const freshTenants = loadStoredTenants();
+      const tenantData = freshTenants[normalized];
+      if (tenantData) {
+        setTenants(freshTenants);
+        setActiveSlug(normalized);
+        localStorage.setItem(ACTIVE_SLUG_STORAGE_KEY, normalized);
+
+        setWeddingVideos(tenantData.weddingVideos || []);
+        const tenantFilms = tenantData.weddingFilms || DEFAULT_FILMS.map(f => ({ ...f, id: `${normalized}_${f.id}` }));
+        setWeddingFilms(tenantFilms);
+        setEventSettings(tenantData.eventSettings || DEFAULT_EVENT_SETTINGS);
+        setCollageLayouts(tenantData.collageLayouts || DEFAULT_COLLAGE_LAYOUTS);
+        setWeddingSeries(tenantData.weddingSeries || DEFAULT_SERIES);
+
+        setAdminRole('photographer');
+        setAdminOpen(true);
+        setPinLoginOpen(false);
+        setCurrentScreen('home');
+        window.history.pushState({}, '', `/admin/${normalized}`);
+      }
+      return;
+    }
+
+    // Standard photographer login (4321) opens the dashboard panel
+    setAdminRole('photographer');
+    setAdminOpen(true);
+    setPinLoginOpen(false);
+    window.history.pushState({}, '', `/admin/${activeSlug}`);
+  };
+
+  const handleStartInlineEditing = () => {
     setSelectedProfile({ id: 'admin', name: 'Photographer Mode', icon: 'camera', color: '#333333', role: 'admin' });
     setCurrentScreen('home');
     setDraftVideos(JSON.parse(JSON.stringify(weddingVideos)));
+    setDraftFilms(JSON.parse(JSON.stringify(weddingFilms)));
     setDraftSettings(JSON.parse(JSON.stringify(eventSettings)));
     setDraftCollages(JSON.parse(JSON.stringify(collageLayouts)));
     setDraftSeries(JSON.parse(JSON.stringify(weddingSeries)));
     setIsEditMode(true);
-    setPinLoginOpen(false);
+    setAdminOpen(false);
   };
 
   const handleSaveVisualChanges = async () => {
     try {
       const videosForStorage = await prepareLocalMediaForStorage(draftVideos);
+      const filmsForStorage = await prepareLocalMediaForStorage(draftFilms);
       const settingsForStorage = await prepareLocalMediaForStorage(draftSettings);
       const collagesForStorage = await prepareLocalMediaForStorage(draftCollages);
       const seriesForStorage = await prepareLocalMediaForStorage(draftSeries);
 
-      localStorage.setItem('wedflix_videos', JSON.stringify(videosForStorage));
-      localStorage.setItem('wedflix_settings', JSON.stringify(settingsForStorage));
-      localStorage.setItem('wedflix_collages', JSON.stringify(collagesForStorage));
-      localStorage.setItem('wedflix_series', JSON.stringify(seriesForStorage));
+      updateActiveTenant({
+        weddingVideos: videosForStorage,
+        weddingFilms: filmsForStorage,
+        eventSettings: settingsForStorage,
+        collageLayouts: collagesForStorage,
+        weddingSeries: seriesForStorage,
+      });
 
       setWeddingVideos(draftVideos);
+      setWeddingFilms(draftFilms);
       setEventSettings(draftSettings);
       setCollageLayouts(draftCollages);
       setWeddingSeries(draftSeries);
@@ -5430,7 +5935,8 @@ export default function App() {
       setSelectedEditElement(null);
       setSelectedProfile(null);
       setCurrentScreen('intro');
-    alert("All changes saved and published successfully to the live wedding webpage.");
+      window.history.pushState({}, '', `/w/${activeSlug}`);
+      alert("All changes saved and published successfully to the live wedding webpage.");
     } catch (error) {
       console.error('Failed to save visual changes:', error);
       alert("Save failed because the browser could not store one of the files. Try a smaller file or use a hosted/local URL like /Video/video_1.mp4.");
@@ -5449,6 +5955,7 @@ export default function App() {
   const handleSaveStagingElement = (updatedData) => {
     if (updatedData._deleteVideoId) {
       setDraftVideos(prev => prev.filter(v => v.id !== updatedData._deleteVideoId));
+      setDraftFilms(prev => prev.filter(v => v.id !== updatedData._deleteVideoId));
       setSelectedEditElement(null);
       return;
     }
@@ -5473,6 +5980,7 @@ export default function App() {
     } else if (selectedEditElement.type === 'card') {
       const vidId = selectedEditElement.key;
       setDraftVideos(prev => prev.map(v => v.id === vidId ? { ...v, ...updatedData } : v));
+      setDraftFilms(prev => prev.map(v => v.id === vidId ? { ...v, ...updatedData } : v));
     } else if (selectedEditElement.type === 'collage-slot') {
       const { collageId, slotKey } = selectedEditElement.key;
       setDraftCollages(prev => prev.map(c => {
@@ -5502,7 +6010,11 @@ export default function App() {
         isTrending: updatedData.category === 'Trending Now',
         isTop10: false,
       };
-      setDraftVideos(prev => [...prev, newVid]);
+      if (newVid.category === 'Films') {
+        setDraftFilms(prev => [...prev, newVid]);
+      } else {
+        setDraftVideos(prev => [...prev, newVid]);
+      }
     } else if (selectedEditElement.type === 'new-collage') {
       const type = updatedData.type || 'mosaic';
       const maxSlots = (type === 'quad' || type === 'spotlight') ? 4 : 3;
@@ -5571,8 +6083,35 @@ export default function App() {
   };
 
   const scrollRef = useRef(null);
+  const isProgrammaticScroll = useRef(false);
+
+  const handleNavClick = (sectionId) => {
+    const mainSections = ['home', 'seasons', 'films', 'moments', 'gallery'];
+    if (mainSections.includes(sectionId)) {
+      isProgrammaticScroll.current = true;
+      setActiveSection(sectionId);
+
+      // Let the main continuous layout mount if it's currently not active
+      setTimeout(() => {
+        const element = document.getElementById(sectionId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Release scroll spy lock after scroll transition completes
+        setTimeout(() => {
+          isProgrammaticScroll.current = false;
+        }, 800);
+      }, 50);
+    } else {
+      setActiveSection(sectionId);
+    }
+  };
 
   useEffect(() => {
+    // Multi-client mode is driven by wedflix_tenants. Legacy single-workspace
+    // keys are intentionally ignored so one client cannot overwrite another.
+    return;
     const savedVideos = localStorage.getItem('wedflix_videos');
     const savedSettings = localStorage.getItem('wedflix_settings');
     const savedCollages = localStorage.getItem('wedflix_collages');
@@ -5589,7 +6128,7 @@ export default function App() {
       setWeddingVideos(DEFAULT_VIDEOS);
       localStorage.setItem('wedflix_videos', JSON.stringify(DEFAULT_VIDEOS));
       localStorage.setItem('wedflix_data_version', DATA_VERSION);
-      
+
       // Reset settings to new defaults
       setEventSettings(DEFAULT_EVENT_SETTINGS);
       localStorage.setItem('wedflix_settings', JSON.stringify(DEFAULT_EVENT_SETTINGS));
@@ -5666,41 +6205,117 @@ export default function App() {
 
   const handleSaveSettings = (newSettings) => {
     setEventSettings(newSettings);
-    localStorage.setItem('wedflix_settings', JSON.stringify(newSettings));
+    updateActiveTenant({ eventSettings: newSettings });
   };
 
   const handleSaveCollages = (newCollages) => {
     setCollageLayouts(newCollages);
-    localStorage.setItem('wedflix_collages', JSON.stringify(newCollages));
+    updateActiveTenant({ collageLayouts: newCollages });
   };
 
   const handleAddVideo = (newVid) => {
-    const updated = [...weddingVideos, newVid];
-    setWeddingVideos(updated);
-    localStorage.setItem('wedflix_videos', JSON.stringify(updated));
+    if (newVid.category === 'Films') {
+      const updated = [...weddingFilms, newVid];
+      setWeddingFilms(updated);
+      updateActiveTenant({ weddingFilms: updated });
+    } else {
+      const updated = [...weddingVideos, newVid];
+      setWeddingVideos(updated);
+      updateActiveTenant({ weddingVideos: updated });
+    }
   };
 
   const handleDeleteVideo = (id) => {
-    const updated = weddingVideos.filter(v => v.id !== id);
-    setWeddingVideos(updated);
-    localStorage.setItem('wedflix_videos', JSON.stringify(updated));
+    const isInFilms = weddingFilms.some(v => v.id === id);
+    const isInVideos = weddingVideos.some(v => v.id === id);
+
+    let nextFilms = weddingFilms;
+    let nextVideos = weddingVideos;
+
+    if (isInFilms) {
+      nextFilms = weddingFilms.filter(v => v.id !== id);
+      setWeddingFilms(nextFilms);
+    }
+    if (isInVideos) {
+      nextVideos = weddingVideos.filter(v => v.id !== id);
+      setWeddingVideos(nextVideos);
+    }
+
+    updateActiveTenant({ weddingFilms: nextFilms, weddingVideos: nextVideos });
   };
 
   const handleEditVideo = (updatedVideo) => {
-    const updated = weddingVideos.map(v => v.id === updatedVideo.id ? updatedVideo : v);
-    setWeddingVideos(updated);
-    localStorage.setItem('wedflix_videos', JSON.stringify(updated));
+    const wasInFilms = weddingFilms.some(v => v.id === updatedVideo.id);
+    const wasInVideos = weddingVideos.some(v => v.id === updatedVideo.id);
+
+    const isNowFilm = updatedVideo.category === 'Films';
+
+    if (isNowFilm) {
+      let nextFilms = weddingFilms;
+      if (wasInFilms) {
+        nextFilms = weddingFilms.map(v => v.id === updatedVideo.id ? updatedVideo : v);
+      } else {
+        nextFilms = [...weddingFilms, updatedVideo];
+      }
+      let nextVideos = weddingVideos;
+      if (wasInVideos) {
+        nextVideos = weddingVideos.filter(v => v.id !== updatedVideo.id);
+      }
+
+      setWeddingFilms(nextFilms);
+      setWeddingVideos(nextVideos);
+      updateActiveTenant({ weddingFilms: nextFilms, weddingVideos: nextVideos });
+    } else {
+      let nextVideos = weddingVideos;
+      if (wasInVideos) {
+        nextVideos = weddingVideos.map(v => v.id === updatedVideo.id ? updatedVideo : v);
+      } else {
+        nextVideos = [...weddingVideos, updatedVideo];
+      }
+      let nextFilms = weddingFilms;
+      if (wasInFilms) {
+        nextFilms = weddingFilms.filter(v => v.id !== updatedVideo.id);
+      }
+
+      setWeddingFilms(nextFilms);
+      setWeddingVideos(nextVideos);
+      updateActiveTenant({ weddingFilms: nextFilms, weddingVideos: nextVideos });
+    }
   };
 
   const handleScroll = useCallback(() => {
-    if (scrollRef.current) setScrolled(scrollRef.current.scrollTop > 60);
-  }, []);
+    if (!scrollRef.current) return;
+    setScrolled(scrollRef.current.scrollTop > 60);
+
+    if (isProgrammaticScroll.current) return;
+
+    const mainSections = ['home', 'seasons', 'films', 'moments', 'gallery'];
+    if (!mainSections.includes(activeSection)) return;
+
+    let closestSection = activeSection;
+
+    for (const id of mainSections) {
+      const el = document.getElementById(id);
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        // Element is considered in view if its top bounds are within range of scroll window
+        if (rect.top <= 200 && rect.bottom >= 200) {
+          closestSection = id;
+          break;
+        }
+      }
+    }
+
+    if (closestSection !== activeSection) {
+      setActiveSection(closestSection);
+    }
+  }, [activeSection]);
 
   const handleToggleFavorite = (video) => {
     setMyList(prev => {
       const exists = prev.some(v => v.id === video.id);
       const updated = exists ? prev.filter(v => v.id !== video.id) : [...prev, video];
-      localStorage.setItem('wedflix_mylist', JSON.stringify(updated));
+      localStorage.setItem(`wedflix_mylist_${activeSlug}`, JSON.stringify(updated));
       return updated;
     });
   };
@@ -5711,9 +6326,9 @@ export default function App() {
   const fashionBeauty = activeVideosSource.filter(v => v.category === 'Fashion & Beauty');
   const foodDrinks = activeVideosSource.filter(v => v.category === 'Food & Drinks');
   const lifestyleWellness = activeVideosSource.filter(v => v.category === 'Lifestyle & Wellness');
-  const top10Highlights = activeVideosSource.filter(v => v.isTop10).sort((a,b) => (a.rank || 0) - (b.rank || 0));
+  const top10Highlights = activeVideosSource.filter(v => v.isTop10).sort((a, b) => (a.rank || 0) - (b.rank || 0));
 
-  const matchedVideos = activeVideosSource.filter(v => 
+  const matchedVideos = activeVideosSource.filter(v =>
     v.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     v.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (v.description && v.description.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -5727,6 +6342,8 @@ export default function App() {
       setCurrentScreen('home');
     }
   };
+
+  const isMainSection = ['home', 'seasons', 'films', 'moments', 'gallery'].includes(activeSection);
 
   return (
     <>
@@ -5766,6 +6383,9 @@ export default function App() {
             <PinLoginScreen
               onSuccess={handleStartEditMode}
               onCancel={() => setPinLoginOpen(false)}
+              tenants={tenants}
+              activeSlug={activeSlug}
+              onProvisionTenant={handleProvisionTenantFromLogin}
             />
           )}
         </AnimatePresence>
@@ -5780,6 +6400,19 @@ export default function App() {
           )}
         </AnimatePresence>
         <AnimatePresence mode="wait">
+          {currentScreen === 'client-hub' && (
+            <ClientShowcaseScreen
+              key="client-hub"
+              tenantsList={Object.values(tenants)}
+              onSelectClient={(slug) => switchWorkspace(slug)}
+              onOpenAdminLogin={() => {
+                setAdminRole('super_admin');
+                setPinLoginOpen(true);
+                window.history.pushState({}, '', '/admin');
+              }}
+            />
+          )}
+
           {/* Welcome Screen: Pure Netflix Intro Video */}
           {currentScreen === 'intro' && (
             <IntroScreen
@@ -5805,12 +6438,12 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.4 }}
-              style={{ position: 'fixed', inset: 0, top: isEditMode ? '50px' : 0, background: '#141414', overflow: 'hidden' }}
+              style={{ position: 'fixed', inset: 0, top: isEditMode ? '72px' : 0, background: '#141414', overflow: 'hidden' }}
             >
               <Navbar
                 scrolled={scrolled}
                 activeSection={activeSection}
-                setActiveSection={setActiveSection}
+                setActiveSection={handleNavClick}
                 profile={selectedProfile}
                 onSwitchProfile={(p) => {
                   if (p) {
@@ -5835,48 +6468,108 @@ export default function App() {
                 onScroll={handleScroll}
                 style={{ width: '100%', height: '100%', overflowY: 'auto', overflowX: 'hidden', paddingLeft: 0 }}
               >
-                {activeSection === 'home' && (
-                  <>
-                    <HeroSection
-                      settings={isEditMode ? draftSettings : eventSettings}
-                      onPlay={(v) => {
-                        setActiveVideo(v);
-                        setCurrentScreen('player');
-                      }}
-                      onMoreInfo={() => setDetailOpen(true)}
-                      isEditMode={isEditMode}
-                      onEditClick={setSelectedEditElement}
-                    />
-
-                    {/* Rows Carousel Grid */}
-                    <div style={{ marginTop: -80, position: 'relative', zIndex: 20 }}>
-                      {/* The Celebration Series */}
-                      <ContentRow
-                        title="The Celebration Series"
-                        shows={(isEditMode ? draftSeries : weddingSeries).seasons.map((s, idx) => ({
-                          id: s.id, title: s.title, seasonLabel: s.seasonLabel,
-                          thumbnail: s.thumbnail, url: s.episodes[0]?.url || '',
-                          color: '#e50914', duration: '', match: 99, category: 'Seasons',
-                          seasonIdx: idx
-                        }))}
+                {/* Consolidated Main Continuous Sections */}
+                {isMainSection && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
+                    {/* HOME SECTION */}
+                    <div id="home">
+                      <HeroSection
+                        settings={isEditMode ? draftSettings : eventSettings}
                         onPlay={(v) => {
-                          setDetailSeasonIdx(v.seasonIdx !== undefined ? v.seasonIdx : 0);
-                          setDetailOpen(true);
+                          setActiveVideo(v);
+                          setCurrentScreen('player');
                         }}
-                        myList={myList}
-                        onToggleFavorite={handleToggleFavorite}
+                        onMoreInfo={() => setDetailOpen(true)}
                         isEditMode={isEditMode}
                         onEditClick={setSelectedEditElement}
-                        onMoreInfo={(v) => {
-                          setDetailSeasonIdx(v?.seasonIdx !== undefined ? v.seasonIdx : 0);
-                          setDetailOpen(true);
-                        }}
                       />
 
-                      {/* Our Films Row */}
+                      {/* Rows Carousel Grid */}
+                      <div style={{ marginTop: -80, position: 'relative', zIndex: 20 }}>
+                        {/* The Celebration Series */}
+                        <ContentRow
+                          title="The Celebration Series"
+                          shows={(isEditMode ? draftSeries : weddingSeries).seasons.map((s, idx) => ({
+                            id: s.id, title: s.title, seasonLabel: s.seasonLabel,
+                            thumbnail: s.thumbnail, url: s.episodes[0]?.url || '',
+                            color: '#e50914', duration: '', match: 99, category: 'Seasons',
+                            seasonIdx: idx
+                          }))}
+                          onPlay={(v) => {
+                            setDetailSeasonIdx(v.seasonIdx !== undefined ? v.seasonIdx : 0);
+                            setDetailOpen(true);
+                          }}
+                          myList={myList}
+                          onToggleFavorite={handleToggleFavorite}
+                          isEditMode={isEditMode}
+                          onEditClick={setSelectedEditElement}
+                          onMoreInfo={(v) => {
+                            setDetailSeasonIdx(v?.seasonIdx !== undefined ? v.seasonIdx : 0);
+                            setDetailOpen(true);
+                          }}
+                        />
+
+                        {/* Our Films Row */}
+                        <ContentRow
+                          title="Our Film"
+                          shows={isEditMode ? draftFilms : weddingFilms}
+                          onPlay={(v) => { setActiveVideo(v); setCurrentScreen('player'); }}
+                          myList={myList}
+                          onToggleFavorite={handleToggleFavorite}
+                          isEditMode={isEditMode}
+                          onEditClick={setSelectedEditElement}
+                          onMoreInfo={() => setDetailOpen(true)}
+                        />
+
+                        {/* Heartfelt Moments Row */}
+                        <ContentRow
+                          title="Heartfelt Moments"
+                          shows={weddingVideos.length > 0 ? weddingVideos : trendingNow}
+                          onPlay={(v) => { setActiveVideo(v); setCurrentScreen('player'); }}
+                          myList={myList}
+                          onToggleFavorite={handleToggleFavorite}
+                          isEditMode={isEditMode}
+                          onEditClick={setSelectedEditElement}
+                          onMoreInfo={() => setDetailOpen(true)}
+                        />
+                      </div>
+                    </div>
+
+                    {/* SEASONS SECTION */}
+                    <div id="seasons" style={{ paddingTop: '80px' }}>
+                      <h1 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fff', fontFamily: '"Playfair Display", serif', padding: '0 4%', marginBottom: 8 }}>The Celebration Series</h1>
+                      <p style={{ padding: '0 4%', color: '#aaa', fontSize: 14, marginBottom: 32 }}>All seasons from the wedding celebration</p>
+                      {(isEditMode ? draftSeries : weddingSeries).seasons.map((s, idx) => {
+                        const colors = ['#e50914', '#8e44ad', '#c0392b', '#16a085', '#d35400', '#2980b9'];
+                        const rowColor = colors[idx % colors.length];
+                        return (
+                          <ContentRow
+                            key={s.id}
+                            title={`${s.seasonLabel || `Season ${idx + 1}`} — ${s.title}`}
+                            shows={(s.episodes || []).map(ep => ({
+                              id: ep.id, title: ep.title, seasonLabel: `${s.seasonLabel || `Season ${idx + 1}`} • ${ep.duration}`,
+                              thumbnail: ep.thumbnail, url: ep.url, color: rowColor, duration: ep.duration, match: 99, category: 'Episodes',
+                            }))}
+                            onPlay={(v) => { setActiveVideo(v); setCurrentScreen('player'); }}
+                            myList={myList}
+                            onToggleFavorite={handleToggleFavorite}
+                            isEditMode={isEditMode}
+                            onEditClick={setSelectedEditElement}
+                            onMoreInfo={() => {
+                              setDetailSeasonIdx(idx);
+                              setDetailOpen(true);
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+
+                    {/* FILMS SECTION */}
+                    <div id="films" style={{ paddingTop: '80px' }}>
+                      <h1 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fff', fontFamily: '"Playfair Display", serif', padding: '0 4%', marginBottom: 32 }}>Our Films</h1>
                       <ContentRow
                         title="Our Film"
-                        shows={DEFAULT_FILMS}
+                        shows={isEditMode ? draftFilms : weddingFilms}
                         onPlay={(v) => { setActiveVideo(v); setCurrentScreen('player'); }}
                         myList={myList}
                         onToggleFavorite={handleToggleFavorite}
@@ -5884,8 +6577,11 @@ export default function App() {
                         onEditClick={setSelectedEditElement}
                         onMoreInfo={() => setDetailOpen(true)}
                       />
+                    </div>
 
-                      {/* Heartfelt Moments Row */}
+                    {/* MOMENTS SECTION */}
+                    <div id="moments" style={{ paddingTop: '80px' }}>
+                      <h1 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fff', fontFamily: '"Playfair Display", serif', padding: '0 4%', marginBottom: 32 }}>Little Moments</h1>
                       <ContentRow
                         title="Heartfelt Moments"
                         shows={weddingVideos.length > 0 ? weddingVideos : trendingNow}
@@ -5896,8 +6592,124 @@ export default function App() {
                         onEditClick={setSelectedEditElement}
                         onMoreInfo={() => setDetailOpen(true)}
                       />
+                      <ContentRow
+                        title="Behind The Scenes"
+                        shows={fashionBeauty}
+                        onPlay={(v) => { setActiveVideo(v); setCurrentScreen('player'); }}
+                        myList={myList}
+                        onToggleFavorite={handleToggleFavorite}
+                        isEditMode={isEditMode}
+                        onEditClick={setSelectedEditElement}
+                        onMoreInfo={() => setDetailOpen(true)}
+                      />
                     </div>
-                  </>
+
+                    {/* GALLERY SECTION */}
+                    <div id="gallery" style={{ paddingTop: '80px', paddingLeft: '4%', paddingRight: '4%' }}>
+                      <h1 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fff', marginBottom: 8 }}>Wedding Gallery</h1>
+                      <p style={{ fontSize: '0.95rem', color: '#aaa', marginBottom: 40 }}>
+                        Browse beautiful moments captured by the photographer in custom collages.
+                      </p>
+
+                      {(() => {
+                        const activeCollagesSource = isEditMode ? draftCollages : collageLayouts;
+                        return activeCollagesSource.length > 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 50 }}>
+                            {activeCollagesSource.map((collage) => {
+                              const hasPhotos = Object.values(collage.slots).some(slot => !!slot.url);
+
+                              return (
+                                <div key={collage.id} style={{ background: '#1c1c1c', border: '1px solid #292929', borderRadius: 12, padding: '24px 4%', width: '100%', maxWidth: 1000, margin: '0 auto', boxShadow: '0 8px 30px rgba(0,0,0,0.5)' }}>
+                                  <h2 style={{ fontSize: '1.8rem', color: '#fff', marginBottom: 16, fontFamily: '"Playfair Display", serif', fontWeight: 700, letterSpacing: '0.5px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span
+                                      className={isEditMode ? 'editable-visual-element' : ''}
+                                      style={{ cursor: isEditMode ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: 8 }}
+                                      onClick={() => {
+                                        if (isEditMode) {
+                                          setSelectedEditElement({
+                                            type: 'edit-collage-meta',
+                                            key: collage.id,
+                                            data: { name: collage.name, type: collage.type }
+                                          });
+                                        }
+                                      }}
+                                    >
+                                      {collage.name} {isEditMode && <span style={{ fontSize: 10, color: '#aaa', fontWeight: 400, border: '1px solid rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: 4, textTransform: 'none', letterSpacing: '0px', fontFamily: '"Netflix Sans", sans-serif', marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 4 }}><AppIcon type="edit" size={10} /> Edit Album Info / Delete</span>}
+                                    </span>
+                                    <span style={{ fontSize: '0.8rem', color: '#e50914', background: 'rgba(229,9,20,0.1)', padding: '4px 10px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>
+                                      {collage.type === 'mosaic' && 'Mosaic Grid'}
+                                      {collage.type === 'portrait-row' && 'Portrait Columns'}
+                                      {collage.type === 'quad' && 'Symmetrical Quad'}
+                                      {collage.type === 'spotlight' && 'Spotlight Grid'}
+                                    </span>
+                                  </h2>
+
+                                  {hasPhotos || isEditMode ? (
+                                    <div className={`${collage.type}-layout`} style={{ gap: 12 }}>
+                                      {Object.keys(collage.slots).map((slotKey) => {
+                                        const slot = collage.slots[slotKey];
+                                        const slotNum = slotKey.replace('slot', '');
+                                        const isFilled = !!slot?.url;
+
+                                        return (
+                                          <div
+                                            key={slotKey}
+                                            className={`collage-slot ${collage.type}-slot-${slotNum} ${isFilled ? 'filled' : ''} ${isEditMode ? 'editable-visual-element' : ''}`}
+                                            style={{
+                                              backgroundImage: isFilled ? `url(${slot.url})` : 'none',
+                                              height: '100%',
+                                              border: isFilled ? 'none' : '1px dashed rgba(255,255,255,0.15)',
+                                              cursor: (isFilled || isEditMode) ? 'pointer' : 'default',
+                                            }}
+                                            onClick={() => {
+                                              if (isEditMode) {
+                                                setSelectedEditElement({
+                                                  type: 'collage-slot',
+                                                  key: { collageId: collage.id, slotKey },
+                                                  data: slot || { url: '', caption: '' }
+                                                });
+                                              } else if (isFilled) {
+                                                setSelectedGalleryPhoto(slot.url);
+                                              }
+                                            }}
+                                          >
+                                            {isEditMode && <div className="edit-badge" style={{ fontSize: 8, padding: '2px 5px' }}><AppIcon type="edit" size={8} /> Edit Slot</div>}
+                                            {isFilled && (
+                                              <div className="collage-slot-overlay">
+                                                <p style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', color: '#e50914', marginBottom: 4 }}>Moment {slotNum}</p>
+                                                <p style={{ fontSize: 12, color: '#fff', padding: '0 8px' }}>{slot.caption || 'Beautiful Vows'}</p>
+                                              </div>
+                                            )}
+                                            {!isFilled && (
+                                              <div style={{ color: '#444', fontSize: 11, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                                                <span>No photo set</span>
+                                                {isEditMode && <span style={{ color: '#e50914', fontSize: 10, marginTop: 4 }}>[Click to Add]</span>}
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <div style={{ textAlign: 'center', padding: '40px 0', color: '#555' }}>
+                                      <span style={{ color: '#666', display: 'inline-flex', marginBottom: 12 }}><AppIcon type="camera" size={32} /></span>
+                                      <p style={{ fontSize: 13, color: '#888' }}>This album is currently empty. The photographer is updating the photos.</p>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div style={{ textAlign: 'center', padding: '80px 0', color: '#666' }}>
+                            <span style={{ color: '#666', display: 'inline-flex', marginBottom: 16 }}><AppIcon type="image" size={48} /></span>
+                            <p style={{ fontSize: 16, fontWeight: 500, color: '#aaa' }}>No collage albums published yet.</p>
+                            <p style={{ fontSize: 13, marginTop: 4 }}>Photographer can publish custom photo collages from the Photographer Console.</p>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
                 )}
 
                 {activeSection === 'search' && (
@@ -5905,7 +6717,7 @@ export default function App() {
                     <h1 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fff', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
                       <span>Search Stream Hub</span>
                     </h1>
-                    
+
                     <div style={{ position: 'relative', width: '100%', maxWidth: 500, marginBottom: 40 }}>
                       <input
                         type="text"
@@ -5972,221 +6784,6 @@ export default function App() {
                         <p style={{ fontSize: 13, marginTop: 4 }}>Try searching for categories like "Beauty", "Food", "Wellness", or "Trending".</p>
                       </div>
                     )}
-                  </div>
-                )}
-
-                {activeSection === 'seasons' && (
-                  <div style={{ padding: '100px 0 40px' }}>
-                    <h1 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fff', fontFamily: 'Hatolie, serif', padding: '0 4%', marginBottom: 8 }}>The Celebration Series</h1>
-                    <p style={{ padding: '0 4%', color: '#aaa', fontSize: 14, marginBottom: 32 }}>All seasons from the wedding celebration</p>
-                    {(isEditMode ? draftSeries : weddingSeries).seasons.map((s, idx) => {
-                      const colors = ['#e50914', '#8e44ad', '#c0392b', '#16a085', '#d35400', '#2980b9'];
-                      const rowColor = colors[idx % colors.length];
-                      return (
-                        <ContentRow
-                          key={s.id}
-                          title={`${s.seasonLabel || `Season ${idx+1}`} — ${s.title}`}
-                          shows={(s.episodes || []).map(ep => ({
-                            id: ep.id, title: ep.title, seasonLabel: `${s.seasonLabel || `Season ${idx+1}`} • ${ep.duration}`,
-                            thumbnail: ep.thumbnail, url: ep.url, color: rowColor, duration: ep.duration, match: 99, category: 'Episodes',
-                          }))}
-                          onPlay={(v) => { setActiveVideo(v); setCurrentScreen('player'); }}
-                          myList={myList}
-                          onToggleFavorite={handleToggleFavorite}
-                          isEditMode={isEditMode}
-                          onEditClick={setSelectedEditElement}
-                          onMoreInfo={() => {
-                            setDetailSeasonIdx(idx);
-                            setDetailOpen(true);
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                )}
-
-                {activeSection === 'films' && (
-                  <div style={{ padding: '100px 0 40px' }}>
-                    <h1 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fff', fontFamily: 'Hatolie, serif', padding: '0 4%', marginBottom: 32 }}>Our Films</h1>
-                    <ContentRow
-                      title="Our Film"
-                      shows={DEFAULT_FILMS}
-                      onPlay={(v) => { setActiveVideo(v); setCurrentScreen('player'); }}
-                      myList={myList}
-                      onToggleFavorite={handleToggleFavorite}
-                      isEditMode={isEditMode}
-                      onEditClick={setSelectedEditElement}
-                      onMoreInfo={() => setDetailOpen(true)}
-                    />
-                  </div>
-                )}
-
-                {activeSection === 'moments' && (
-                  <div style={{ padding: '100px 0 40px' }}>
-                    <h1 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fff', fontFamily: 'Hatolie, serif', padding: '0 4%', marginBottom: 32 }}>Little Moments</h1>
-                    <ContentRow
-                      title="Heartfelt Moments"
-                      shows={weddingVideos.length > 0 ? weddingVideos : trendingNow}
-                      onPlay={(v) => { setActiveVideo(v); setCurrentScreen('player'); }}
-                      myList={myList}
-                      onToggleFavorite={handleToggleFavorite}
-                      isEditMode={isEditMode}
-                      onEditClick={setSelectedEditElement}
-                      onMoreInfo={() => setDetailOpen(true)}
-                    />
-                    <ContentRow
-                      title="Behind The Scenes"
-                      shows={fashionBeauty}
-                      onPlay={(v) => { setActiveVideo(v); setCurrentScreen('player'); }}
-                      myList={myList}
-                      onToggleFavorite={handleToggleFavorite}
-                      isEditMode={isEditMode}
-                      onEditClick={setSelectedEditElement}
-                      onMoreInfo={() => setDetailOpen(true)}
-                    />
-                  </div>
-                )}
-
-                {activeSection === 'gallery' && (
-                  <div style={{ padding: '100px 4% 40px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-                      <button
-                        onClick={() => setActiveSection('home')}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 8,
-                          color: '#fff',
-                          background: 'rgba(255, 255, 255, 0.08)',
-                          border: '1px solid rgba(255, 255, 255, 0.15)',
-                          borderRadius: '20px',
-                          padding: '8px 18px',
-                          fontSize: '0.9rem',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                        }}
-                        onMouseEnter={e => {
-                          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.16)';
-                          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-                          e.currentTarget.style.transform = 'translateX(-2px)';
-                        }}
-                        onMouseLeave={e => {
-                          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
-                          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-                          e.currentTarget.style.transform = 'none';
-                        }}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="19" y1="12" x2="5" y2="12"></line>
-                          <polyline points="12 19 5 12 12 5"></polyline>
-                        </svg>
-                        <span>Back to Home</span>
-                      </button>
-                    </div>
-                    <h1 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fff', marginBottom: 8 }}>Wedding Gallery</h1>
-                    <p style={{ fontSize: '0.95rem', color: '#aaa', marginBottom: 40 }}>
-                      Browse beautiful moments captured by the photographer in custom collages.
-                    </p>
-
-                    {(() => {
-                      const activeCollagesSource = isEditMode ? draftCollages : collageLayouts;
-                      return activeCollagesSource.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 50 }}>
-                          {activeCollagesSource.map((collage) => {
-                            const hasPhotos = Object.values(collage.slots).some(slot => !!slot.url);
-                            
-                            return (
-                              <div key={collage.id} style={{ background: '#1c1c1c', border: '1px solid #292929', borderRadius: 12, padding: '24px 4%', width: '100%', maxWidth: 1000, margin: '0 auto', boxShadow: '0 8px 30px rgba(0,0,0,0.5)' }}>
-                                <h2 style={{ fontSize: '1.8rem', color: '#fff', marginBottom: 16, fontFamily: 'Hatolie', letterSpacing: '0.5px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <span
-                                    className={isEditMode ? 'editable-visual-element' : ''}
-                                    style={{ cursor: isEditMode ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: 8 }}
-                                    onClick={() => {
-                                      if (isEditMode) {
-                                        setSelectedEditElement({
-                                          type: 'edit-collage-meta',
-                                          key: collage.id,
-                                          data: { name: collage.name, type: collage.type }
-                                        });
-                                      }
-                                    }}
-                                  >
-                                    {collage.name} {isEditMode && <span style={{ fontSize: 10, color: '#aaa', fontWeight: 400, border: '1px solid rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: 4, textTransform: 'none', letterSpacing: '0px', fontFamily: '"Netflix Sans", sans-serif', marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 4 }}><AppIcon type="edit" size={10} /> Edit Album Info / Delete</span>}
-                                  </span>
-                                  <span style={{ fontSize: '0.8rem', color: '#e50914', background: 'rgba(229,9,20,0.1)', padding: '4px 10px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>
-                                    {collage.type === 'mosaic' && 'Mosaic Grid'}
-                                    {collage.type === 'portrait-row' && 'Portrait Columns'}
-                                    {collage.type === 'quad' && 'Symmetrical Quad'}
-                                    {collage.type === 'spotlight' && 'Spotlight Grid'}
-                                  </span>
-                                </h2>
-
-                                {hasPhotos || isEditMode ? (
-                                  <div className={`${collage.type}-layout`} style={{ gap: 12 }}>
-                                    {Object.keys(collage.slots).map((slotKey) => {
-                                      const slot = collage.slots[slotKey];
-                                      const slotNum = slotKey.replace('slot', '');
-                                      const isFilled = !!slot?.url;
-
-                                      return (
-                                        <div
-                                          key={slotKey}
-                                          className={`collage-slot ${collage.type}-slot-${slotNum} ${isFilled ? 'filled' : ''} ${isEditMode ? 'editable-visual-element' : ''}`}
-                                          style={{
-                                            backgroundImage: isFilled ? `url(${slot.url})` : 'none',
-                                            height: '100%',
-                                            border: isFilled ? 'none' : '1px dashed rgba(255,255,255,0.15)',
-                                            cursor: (isFilled || isEditMode) ? 'pointer' : 'default',
-                                          }}
-                                          onClick={() => {
-                                            if (isEditMode) {
-                                              setSelectedEditElement({
-                                                type: 'collage-slot',
-                                                key: { collageId: collage.id, slotKey },
-                                                data: slot || { url: '', caption: '' }
-                                              });
-                                            } else if (isFilled) {
-                                              setSelectedGalleryPhoto(slot.url);
-                                            }
-                                          }}
-                                        >
-                                          {isEditMode && <div className="edit-badge" style={{ fontSize: 8, padding: '2px 5px' }}><AppIcon type="edit" size={8} /> Edit Slot</div>}
-                                          {isFilled && (
-                                            <div className="collage-slot-overlay">
-                                              <p style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', color: '#e50914', marginBottom: 4 }}>Moment {slotNum}</p>
-                                              <p style={{ fontSize: 12, color: '#fff', padding: '0 8px' }}>{slot.caption || 'Beautiful Vows'}</p>
-                                            </div>
-                                          )}
-                                          {!isFilled && (
-                                            <div style={{ color: '#444', fontSize: 11, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                                              <span>No photo set</span>
-                                              {isEditMode && <span style={{ color: '#e50914', fontSize: 10, marginTop: 4 }}>[Click to Add]</span>}
-                                            </div>
-                                          )}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                ) : (
-                                  <div style={{ textAlign: 'center', padding: '40px 0', color: '#555' }}>
-                                    <span style={{ color: '#666', display: 'inline-flex', marginBottom: 12 }}><AppIcon type="camera" size={32} /></span>
-                                    <p style={{ fontSize: 13, color: '#888' }}>This album is currently empty. The photographer is updating the photos.</p>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div style={{ textAlign: 'center', padding: '80px 0', color: '#666' }}>
-                          <span style={{ color: '#666', display: 'inline-flex', marginBottom: 16 }}><AppIcon type="image" size={48} /></span>
-                          <p style={{ fontSize: 16, fontWeight: 500, color: '#aaa' }}>No collage albums published yet.</p>
-                          <p style={{ fontSize: 13, marginTop: 4 }}>Photographer can publish custom photo collages from the Photographer Console.</p>
-                        </div>
-                      );
-                    })()}
                   </div>
                 )}
 
@@ -6295,7 +6892,7 @@ export default function App() {
               style={{ zIndex: 3000, position: 'relative' }}
             >
               <AdminPanel
-                videos={weddingVideos}
+                videos={[...weddingVideos, ...weddingFilms]}
                 eventSettings={eventSettings}
                 onSaveSettings={handleSaveSettings}
                 onAddVideo={handleAddVideo}
@@ -6304,6 +6901,12 @@ export default function App() {
                 collageLayouts={collageLayouts}
                 onSaveCollages={handleSaveCollages}
                 onClose={() => setAdminOpen(false)}
+                role={adminRole}
+                tenants={tenants}
+                onUpdateTenants={updateAllTenants}
+                activeSlug={activeSlug}
+                onSwitchActiveSlug={(slug) => switchWorkspace(slug, { mode: 'admin' })}
+                onStartInlineEditing={handleStartInlineEditing}
               />
             </motion.div>
           )}
